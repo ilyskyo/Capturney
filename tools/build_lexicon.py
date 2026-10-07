@@ -69,6 +69,8 @@ WORD_RE = re.compile(r"^[a-z][a-z]{1,14}(?: [a-z][a-z]{1,14})?$")
 BLOCK_SPLIT_RE = re.compile(r"\\n|\r?\n")
 SENSE_SPLIT_RE = re.compile(r"[,，、;；]")
 PAREN_RE = re.compile(r"[\(（][^)）]*[\)）]")
+# 配对括号剥完之后仍可能剩下的孤括号（源数据里就有 `伊顿（姓氏））` 这种多写一只闭括号的行）。
+STRAY_BRACKETS_RE = re.compile(r"[\(（\)）]")
 BRACKET_RE = re.compile(r"\[[^\]]*\]")
 
 # POS markers ECDICT writes inline. Anything from a non-noun marker onwards is a different
@@ -180,6 +182,9 @@ def first_noun_sense(translation: str) -> str | None:
         # 释义发到用户手机上，而界面上看不出任何异常。（全表有 137 条这样。）
         sense_group = BRACKET_RE.sub(" ", body)
         sense_group = PAREN_RE.sub(" ", sense_group)
+        # 源数据里存在 `伊顿（姓氏））` 这种**多一个闭括号**的行：剥掉配对的一只之后还剩一只孤的，
+        # 于是发出去是 `伊顿 ）`。孤括号不携带任何信息，直接删——留着它比删掉更容易被误读成释义的一部分。
+        sense_group = STRAY_BRACKETS_RE.sub("", sense_group)
         for raw_sense in SENSE_SPLIT_RE.split(sense_group):
             sense = raw_sense
             sense = sense.strip().strip("。．.；;，,、 ")

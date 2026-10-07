@@ -14,9 +14,9 @@ import org.junit.Test
 
 /**
  * 词典字段形状守卫。`en.json` 是 12006 条生成数据，**重新生成一次就能悄悄改掉任何东西**，
- * 而它每一条都可能直接出现在卡片上。这里守四条界面真正依赖的性质。
+ * 而它每一条都可能直接出现在卡片上。这里守六条界面真正依赖的性质。
  *
- * ## 为什么是这四条
+ * ## 为什么是这六条
  *
  * - **音标必须恰好被一对斜杠包住**。`CaptureScreen` 是 `text = ipa` 原样渲染的，
  *   所以斜杠是数据的一部分而不是界面加的。`clean_ipa` 的规约就是「剥掉已有的一对、
@@ -25,8 +25,13 @@ import org.junit.Test
  * - **每条都要有中文释义**。那是中文用户要被评级的背面；生成器里 `first_noun_sense` 返回
  *   None 时条目会被跳过，但兜底路径若改了就可能写出空串。
  * - **英文词头不许重复**。搜索页会把两条同名词头都列出来，用户看到的是「同一个词出现两遍」。
- * - **解析器要真的看到东西**。前三条都是「遍历后断言没有坏样本」，一旦解析本身失败，
+ * - **解析器要真的看到东西**。前几条都是「遍历后断言没有坏样本」，一旦解析本身失败，
  *   它们会集体变成真空通过——所以先断言条数。
+ * - **括号不许只有一半**。生成器一度先按逗号切义项、再剥括号，而 ECDICT 的括号里就写着逗号，
+ *   于是 `詹姆斯（姓氏, 男子名）` 发出的是 `詹姆斯（姓氏`；另有源数据自己多写一只闭括号的
+ *   （`伊顿（姓氏））` → `伊顿 ）`）。两类都在界面上长得像正常内容。
+ * - **情态词必须仍是情态释义**。ECDICT 的块序不是义项序，`can/may/might/will` 的首块是生僻的
+ *   名词/动词义，情态用法在第二块——按首块取就等于给最高频的几个词教错意思。
  */
 class LexiconFieldShapeTest {
 
@@ -79,7 +84,57 @@ class LexiconFieldShapeTest {
         )
     }
 
+    @Test
+    fun noGlossCarriesABracketThatNeverCloses() {
+        // `詹姆斯（姓氏, 男子名）` 这类补充说明在 ECDICT 里就带着逗号。生成器一度**先按逗号切义项、
+        // 再剥括号**，于是半截 `詹姆斯（姓氏` 被发出去，共 137 条（见 6af765e）。
+        // 括号不配对是那种「界面上完全正常、用户却学到一团乱码」的坏数据，所以要钉住。
+        val bad = entries.mapNotNull { entry ->
+            val gloss = entry.motherTongueGloss() ?: return@mapNotNull null
+            when {
+                gloss.count { it == '（' } != gloss.count { it == '）' } -> "$gloss（全角括号不配对）"
+                gloss.count { it == '(' } != gloss.count { it == ')' } -> "$gloss（半角括号不配对）"
+                gloss.startsWith("（") || gloss.startsWith("(") -> "$gloss（整条释义只是个限定语，词本身丢了）"
+                else -> null
+            }
+        }
+        assertTrue(
+            "有 ${bad.size} 条中文释义的括号形状不对：${bad.take(6)}。卡片背面原样渲染这一行，" +
+                "半截括号看起来像内容而不是错误",
+            bad.isEmpty(),
+        )
+    }
+
+    @Test
+    fun modalWordsAreGlossedAsModalsNotAsTheirRareNounSenses() {
+        // ECDICT 的**块序不是义项序**：`can` 的首块是 `vt. 装罐`、`may` 是 `n. 五月`、
+        // `might` 是 `n. 力量`、`will` 是 `n. 意志`，情态用法排在第二块。按首块取就把生僻义发给了
+        // 全英语最高频的几个词（见 f3dbf07）。这里不许它退回去。
+        val expected = mapOf(
+            "can" to "能",
+            "may" to "愿能",
+            "might" to "可能",
+            "will" to "将",
+        )
+        val byWord = entries.associateBy { it.headword().lowercase() }
+        val wrong = expected.mapNotNull { (word, want) ->
+            val actual = byWord[word]?.motherTongueGloss()
+            when {
+                actual == null || actual == want -> null
+                else -> "$word=$actual（应为 $want）"
+            }
+        }
+        assertTrue(
+            "有 ${wrong.size} 个情态词的释义不是情态说法：$wrong。" +
+                "这些词用户每天遇到，取错块等于教错",
+            wrong.isEmpty(),
+        )
+    }
+
     private fun JsonObject.headword(): String = getValue("words").jsonObject.getValue("en").jsonPrimitive.content
+
+    private fun JsonObject.motherTongueGloss(): String? =
+        (this["glosses"] as? JsonObject)?.get("zh")?.jsonPrimitive?.content
 
     private fun findModuleDir(): File {
         var cursor: File? = File("").absoluteFile
