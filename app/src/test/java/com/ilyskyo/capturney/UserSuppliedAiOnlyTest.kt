@@ -3,6 +3,7 @@
 
 package com.ilyskyo.capturney
 
+import com.ilyskyo.capturney.vision.CloudVisionEngine
 import java.io.File
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -77,14 +78,40 @@ class UserSuppliedAiOnlyTest {
             "默认的视觉端点不再是 https——密钥会跟着正文一起被人看见",
             Regex("""DEFAULT_ENDPOINT\s*=\s*"https://""").containsMatchIn(engine),
         )
-        assertTrue(
-            "CloudVisionEngine 里那句「端点必须 https」的检查不见了（它现在只挡 http）",
-            engine.contains("startsWith(\"https://\")"),
-        )
         val manifest = File(module, "src/main/AndroidManifest.xml").readText()
         assertTrue(
             "清单开了 usesCleartextTraffic：那等于允许填进去的密钥走明文网络",
             !manifest.contains("usesCleartextTraffic"),
+        )
+    }
+
+    /**
+     * 「端点不是 https 就不发」这条**用行为验**，而不是在源码里 grep 那句 `startsWith`。
+     *
+     * 原来那一条 grep 守卫的问题是它只证明那串字符还在：把条件写成 `!startsWith("http")`
+     * （于是 `http://` 也能过）、或者把这句检查从 `unavailableReason()` 挪到一个永远走不到的
+     * 分支里，字符串都还在、测试都还绿，而用户的密钥与照片已经在往外发了。
+     * 这里直接把三种端点喂进真的构造函数，读它自己给出的答复。
+     */
+    @Test
+    fun `a non-https endpoint makes the engine refuse instead of sending the key`() {
+        val plaintext = CloudVisionEngine(apiKey = "user-key", model = "a-model", endpoint = "http://example.invalid/v1")
+        assertTrue(
+            "http 端点没有被拒绝：这条请求会把 API Key 以明文发出去",
+            plaintext.unavailableReason() != null,
+        )
+
+        // 一个连 scheme 都没有的端点同样不许发——URL() 会按 http 解析它。
+        val schemeless = CloudVisionEngine(apiKey = "user-key", model = "a-model", endpoint = "example.invalid/v1")
+        assertTrue(
+            "没有 scheme 的端点没有被拒绝，而它会被当成明文发出去",
+            schemeless.unavailableReason() != null,
+        )
+
+        val https = CloudVisionEngine(apiKey = "user-key", model = "a-model", endpoint = "https://example.invalid/v1")
+        assertTrue(
+            "https + 有密钥 + 有模型 仍然被拒绝：那条承诺不该顺手把能用的路也堵掉。实际理由：${https.unavailableReason()}",
+            https.unavailableReason() == null,
         )
     }
 
