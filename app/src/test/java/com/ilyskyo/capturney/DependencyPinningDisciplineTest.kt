@@ -30,7 +30,9 @@ class DependencyPinningDisciplineTest {
     @Test
     fun every_catalog_entry_declares_a_version_source() {
         val offenders = catalog.readLines().entriesOfSections("libraries", "plugins")
-            .filter { !it.line.contains("version") }
+            // 认两种确切的写法，不认「这一行里出现过 version 这个字」：
+            // 后者会被 `name = "no-version"` 这种artifact 名白白满足掉（我第一次证伪就是这么没红成）。
+            .filter { entry -> !entry.line.contains("version.ref") && !entry.line.contains("version =") }
             .map { "${it.section} 第 ${it.lineNumber} 行" }
 
         assertTrue(
