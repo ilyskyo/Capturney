@@ -445,8 +445,13 @@ private fun SheetAction(text: String, onClick: () -> Unit, destructive: Boolean 
     )
 }
 
-/** 复制的是「这条记录能被说出来的部分」：标题、摘要、画面上的词。不含内部 id。 */
-private fun detailPlainText(state: EntryDetailState): String = buildString {
+/**
+ * 复制的是「这条记录能被说出来的部分」：标题、摘要、画面上的词。不含内部 id。
+ *
+ * `internal` 只为了让 `CopiedTextCarriesNoIdsTest` 能钉住后半句——那是一句对用户的行为承诺，
+ * 而 id 混进剪贴板在屏幕上完全看不出来。
+ */
+internal fun detailPlainText(state: EntryDetailState): String = buildString {
     state.entry.title?.takeIf { it.isNotBlank() }?.let { appendLine(it) }
     state.entry.summary?.takeIf { it.isNotBlank() }?.let { appendLine(it) }
     state.objects.map { it.word }.distinct().takeIf { it.isNotEmpty() }?.let { appendLine(it.joinToString(" · ")) }
