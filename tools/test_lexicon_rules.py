@@ -153,5 +153,34 @@ class ClassFilterIsRejectedTest(unittest.TestCase):
         self.assertEqual(["Q274393"], unclassified, "正解与错解在「没有类别」这一点上无法区分")
 
 
+class AdjectiveMarkerIsKnownDefectTest(unittest.TestCase):
+    """已知缺陷的可执行记录：`a.` 不在 `POS_MARKERS` 里，于是形容词打头的常用词会**被删掉**。
+
+    ECDICT 用的形容词标记是 `a.`，而 `POS_MARKERS` 里只有 `adj.`。首块是 `a. 向下的` 时匹配不上标记，
+    那串就原样留下、再被「含拉丁字母就跳过」的规则判成转写而丢弃——单义块的词整个得到 None。
+    `build()` 见到 None 就 `skipped["noun"] += 1` 把这个词**从词典里去掉**。
+
+    实测影响：12006 条里有 **62 个常用词**会被整表重生成删掉（down / back / bad / best / deep /
+    international / upstairs / wow / bold / forthcoming / fitting / blond …）。多义块的词更隐蔽：
+    它静默取第二个义项，`mean` 当年拿到「卑贱的」就是这么来的。
+
+    为什么不直接补上 `a.`：实测会把改动面从 62 扩到 **474 条**（`all: 全部的→所有的`、
+    `even: 相等的→平坦的` 这类都要人逐条判，而且会把 `PRIMARY_SENSES` 那 11 行改回去）。
+    出路是「首块取不到东西时再往后一个块试」——影响面恰好只有现在返回 None 的那些词。
+    修好之后这条会**意外通过**而报红，那时删掉本类并把取值接进生成器。
+    """
+
+    @unittest.expectedFailure
+    def test_adjective_first_words_must_still_get_a_gloss(self) -> None:
+        for word, translation in [
+            ("down", "a. 向下的" + chr(92) + "nadv. 下, 下去, 降下"),
+            ("back", "a. 后面的" + chr(92) + "nvt. 使后退, 支持"),
+        ]:
+            self.assertIsNotNone(
+                F.first_noun_sense(translation.replace(chr(92) + "n", "\n")),
+                f'{word} 的首块是 `a.`，现在会得到 None——重生成会把它从词典里删掉',
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
