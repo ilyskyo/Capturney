@@ -334,6 +334,30 @@ def build(args: argparse.Namespace) -> int:
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
+
+    # 重建词典最容易犯的错不是写坏内容，而是**悄悄换掉一批条目**。实测：拿当前 ECDICT
+    # 重跑一次，会有 3625 个旧 id 消失、3633 个新 id 出现——因为已发布那份是用另一个
+    # 版本生成的。而 `gloss-<lang>.json` 与场景词表都是**按 id** 找条目的，它们不会报错，
+    # 只会让对应的背面释义静默变空。这条真发生过（`en.toothpaste` 被 GlossOverlayCoverageTest 抓到）。
+    if out.exists() and not args.force:
+        previous = {e["id"] for e in json.loads(out.read_text(encoding="utf-8")).get("entries", [])}
+        kept = {e["id"] for e in entries}
+        dropped = sorted(previous - kept)
+        referenced: set[str] = set()
+        for overlay in sorted(out.parent.glob("gloss-*.json")):
+            referenced |= {i["id"] for i in json.loads(overlay.read_text(encoding="utf-8")).get("entries", [])}
+        fatal = [i for i in dropped if i in referenced]
+        if fatal:
+            raise SystemExit(
+                f"拒绝写出：这次会删掉 {len(fatal)} 个仍被释义补丁引用的条目（如 {fatal[:5]}）。"
+                f"被删条目的背面释义不会报错，只会静默变空。"
+            )
+        if len(dropped) > args.max_dropped:
+            raise SystemExit(
+                f"拒绝写出：这次会删掉 {len(dropped)} 个旧条目（超过 --max-dropped {args.max_dropped}）。"
+                f"要接受一次大换血就显式加 --force，并同步重建 gloss-*.json。"
+            )
+
     # Write compactly: this file is parsed at every cold start, and pretty-printing a
     # 12k-entry document roughly doubles both the bytes and the parse time.
     out.write_text(
@@ -368,6 +392,10 @@ def main() -> int:
                         help="cap entries by frequency rank; 0 for everything")
     # Reserved for a future concreteness filter (e.g. WordNet lexicographer files). See the
     # module docstring for why it is not needed today.
+    parser.add_argument("--force", action="store_true",
+                        help="接受一次大换血：跳过「会删掉多少旧条目」这道写出前检查")
+    parser.add_argument("--max-dropped", type=int, default=50,
+                        help="允许被删掉的旧条目上限（仍被 gloss-*.json 引用的那些一律不许删）")
     parser.add_argument("--require-concrete", action="store_true",
                         help="accepted for forward compatibility; currently a no-op")
     return build(parser.parse_args())
