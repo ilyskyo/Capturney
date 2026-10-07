@@ -195,7 +195,7 @@ class LexiconFieldShapeTest {
             // **照签名批量改掉它们是倒退**，所以这一批评的是「读过」而不是「匹配上签名」。
             "special" to "特别的",  // 原发 n. 那块的首义项「专辑」
             "military" to "军事的", // 原发 n. 军队
-            "account" to "账户",   // 原发 n. 报告
+            "account" to "帐目",   // 原发 n. 报告；「账户」不在这行里（原文写「帐目」）
             "range" to "范围",     // 原发 n. 排
             "lie" to "说谎",       // 原发 n. 谎言
             "break" to "打破",     // 原发 n. 休息
