@@ -132,7 +132,18 @@ def labels_for(ids: list[str]) -> dict[str, dict[str, str]]:
 
 
 def pick(word: str, zh_gloss: str, candidates: list[str], labels: dict[str, dict[str, str]]) -> dict[str, str]:
-    """从候选里挑一个。**只认中文对齐这一条依据**，见模块 docstring。"""
+    """从候选里挑一个。**只认「候选的中文标签是 ECDICT 释义的子串」这一条依据**。
+
+    试过更强的做法并**退回**了：改成「按共享汉字数打分 + 唯一胜出」确实救回了
+    `bakery`(西餅店 vs 面包店)、`computer`(电子计算机 vs 电脑)、`garden` 三条，
+    但同时产出 `airport → エアポート駅 (MARTA)` —— 一个**叫 Airport 的轨道交通站**，
+    它的中文标签「机场站」与「飞机场」共享「机场」两字，于是在打分里唯一胜出。
+    区分「车站」与「机场」需要读实体的 instance-of，不是标签层面能可靠判的。
+
+    代价是明确的：子串规则会漏掉 airport/computer/bakery 这类「同一概念两种写法」。
+    但漏掉的词界面照常显示英文，而错一个释义是**用户会照着去记**——
+    这份数据没有人工复核环节，所以只能要一条「宁可漏、不许错」的规则。
+    """
     if not candidates or not zh_gloss:
         return {}
     agreeing = [qid for qid in candidates if labels.get(qid, {}).get("zh") and labels[qid]["zh"] in zh_gloss]
