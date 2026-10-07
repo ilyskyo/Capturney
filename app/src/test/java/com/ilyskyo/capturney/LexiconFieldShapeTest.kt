@@ -190,6 +190,16 @@ class LexiconFieldShapeTest {
             "white" to "白色的",   // 原发 白色
             "black" to "黑色的",   // 原发 黑色
             "power" to "力量",     // 原发 力
+            // 第四批：频次 300～760 里 243 个「名词块打头」的候选，逐条读下来只有这 7 个是真错的。
+            // 其余那些（light=光、heart=心、trade=贸易、material=材料、season=季节…）本来就该是名词，
+            // **照签名批量改掉它们是倒退**，所以这一批评的是「读过」而不是「匹配上签名」。
+            "special" to "特别的",  // 原发 n. 那块的首义项「专辑」
+            "military" to "军事的", // 原发 n. 军队
+            "account" to "账户",   // 原发 n. 报告
+            "range" to "范围",     // 原发 n. 排
+            "lie" to "说谎",       // 原发 n. 谎言
+            "break" to "打破",     // 原发 n. 休息
+            "pass" to "通过",      // 原发 n. 经过
         )
         val byWord = entries.associateBy { it.headword().lowercase() }
         val wrong = expected.mapNotNull { (word, want) ->
