@@ -5,6 +5,7 @@ package com.ilyskyo.capturney
 
 import android.util.Base64
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -102,15 +103,28 @@ class CorruptPhotoDoesNotBlankTimelineTest {
 
     @Test
     fun the_good_card_renders_and_the_broken_one_still_reports_its_words() {
-        compose.waitForIdle()
+        // 一次 waitForIdle 不够：lookback 是从 Dispatchers.Default 发流的，图片还在异步解码，
+        // 首帧完全可能还没有任何卡片。以前只 waitForIdle() 然后直接 assertIsDisplayed，
+        // 于是这条测试**间歇性红**（同一份代码连跑三次两次绿一次红），而红的时候界面是对的。
+        // 改成等到那个词真的在树里再断言它「显示着」——等待负责时序，断言负责语义。
+        awaitWord("cup")
         compose.onNodeWithText("cup").assertIsDisplayed()
         // 这一条才是重点：照片读不出来，记录本身必须照常出现。
+        awaitWord("bowl")
         compose.onNodeWithText("bowl").assertIsDisplayed()
+    }
+
+    /** 等到写着 [word] 的节点出现；超时交给 `waitUntil` 自己报错，不在这里替它判断。 */
+    private fun awaitWord(word: String) {
+        compose.waitUntil(TIMEOUT_MS) { compose.onAllNodes(hasText(word)).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private companion object {
         const val GOOD_PHOTO = "fixture-good.png"
         const val BROKEN_PHOTO = "fixture-broken.jpg"
+
+        /** 比默认 1000ms 宽一档：这台 AVD 的冷启动首帧能到几百毫秒。 */
+        const val TIMEOUT_MS = 5_000L
 
         val FIXTURE_IDS = listOf("fixture-photo-good", "fixture-photo-broken")
 
