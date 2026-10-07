@@ -359,6 +359,23 @@ CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前
 往源码里加一份真的 `values-fr/strings.xml`、再把 `fr` 注册进 `res/xml/locales_config.xml`、
 两个一起加，三次尝试都**没有**让它变成法语。所以这条只能靠上面那个真传播的截图，进不了 CI。
 
+### 设备测试偶发「No compose hierarchies found」的成因与解法
+
+同一台 AVD 上如果**还装了别的应用**，那个应用周期性跑到前台时会把 Compose 树从量测底下换掉：
+`connectedDebugAndroidTest` 报 `No compose hierarchies found in the app`，而**本仓库的代码没有任何问题**。
+特征是三条——同一天里落在**不同的测试类**上、**单独重跑就全绿**、logcat 同一时间窗里能看到
+另一个包在设置 back callback 并拿到前台窗口。
+
+解法不是加等待（那只会掩盖别人的窗口），而是**给设备测试单开一台不装任何东西的 AVD**：
+
+```bash
+avdmanager create avd -n <名字>-ci -k "system-images;android-34;google_apis;x86_64" -d pixel_5
+```
+
+新 AVD 里只有系统应用，抢前台的那一个不会跟着装过去。第一次冷启动约一分钟，
+之后 `connectedDebugAndroidTest` 只连着它跑——2026-10-07 这么跑过一次全量：**26 条、零失败、
+一次 `No compose hierarchies` 都没有**（此前同一套在共享 AVD 上一天里红了五次）。
+
 
 ## 词典是怎么生成的
 
