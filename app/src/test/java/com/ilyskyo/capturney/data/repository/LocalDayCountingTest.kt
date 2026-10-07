@@ -17,12 +17,15 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
 /**
- * 连续天数（streak）是首页与小组件上唯一一个「算错了也长得像对的」数字：
- * 少算一天用户只会默默少一点动力，多算一天则是在骗人。它此前**一条测试都没有**。
+ * 首页与小组件上有两个「算错了也长得像对的」数字：连续天数（streak）与那张每天评了几次的
+ * 柱状图。少算一天用户只会默默少一点动力，多算一天则是在骗人；而柱状图错一格从界面上根本看不出来。
+ * 两个数都从同一件事推导——**把每次评分归到设备本地的那一天**——所以放在一起测。它们此前
+ * **一条测试都没有**。
  *
  * ## 为什么要连着时区一起测
  *
@@ -36,7 +39,7 @@ import org.junit.Test
  * 顺带一条与直觉相反的：夏令时结束那天有 25 小时，但**往回**减 24 小时并不会跳过一天
  * （会跳过的是往前减的那一侧），所以这两条用例钉的是「分桶时区一致」，不是「按日历天步进」。
  */
-class StreakCountingTest {
+class LocalDayCountingTest {
 
     private val zone = ZoneId.of("America/New_York")
     private val originalZone = TimeZone.getDefault()
@@ -102,15 +105,64 @@ class StreakCountingTest {
         )
     }
 
-    /** 只读 `streak`，所以磁盘上那个文件根本不必存在：`JsonDocument` 在读到之前给的就是 fallback。 */
-    private fun streakOf(now: Long, at: List<Long> = emptyList()): Int {
-        val document = JsonDocument(
-            file = File.createTempFile("streak", ".json").apply { delete() },
-            fallback = { DeckDocument(log = at.map { ReviewLog(cardId = "c", direction = com.ilyskyo.capturney.data.model.StudyDirection.RECOGNIZE, rating = 3, at = it) }) },
+    /**
+     * 两个读数共用的那层：磁盘上那个文件根本不必存在——`JsonDocument` 在读到之前给的就是 fallback，
+     * 而 `streak` 与 `dailyCounts` 都只读不写。
+     */
+    private fun repositoryWithLog(at: List<Long>): DeckRepository = DeckRepository(
+        JsonDocument(
+            file = File.createTempFile("localday", ".json").apply { delete() },
+            fallback = { DeckDocument(log = at.map { ReviewLog(cardId = "c", direction = StudyDirection.RECOGNIZE, rating = 3, at = it) }) },
             serializer = DeckDocument.serializer(),
             scope = scope,
+        ),
+        scope,
+    )
+
+    private fun streakOf(now: Long, at: List<Long> = emptyList()): Int = repositoryWithLog(at).streak(now)
+
+    private fun dailyOf(days: Int, now: Long, at: List<Long> = emptyList()): List<Pair<LocalDate, Int>> =
+        repositoryWithLog(at).dailyCounts(days, now)
+
+    @Test
+    fun `the daily window is exactly the requested number of local days, oldest first`() {
+        val today = day(2026, 6, 15, 9)
+        val empty = dailyOf(days = 7, now = today)
+        assertEquals("要 7 天却给了 ${empty.size} 格", 7, empty.size)
+        assertEquals("最后一格必须是今天", LocalDate.of(2026, 6, 15), empty.last().first)
+        assertEquals("第一格必须是 6 天前", LocalDate.of(2026, 6, 9), empty.first().first)
+        assertTrue("空日志时每一格都该是 0：${empty.map { it.second }}", empty.all { it.second == 0 })
+
+        val counted = dailyOf(
+            days = 7,
+            now = today,
+            at = listOf(
+                day(2026, 6, 9, 0, 5),     // 窗口第一格的最早一刻
+                day(2026, 6, 9, 23, 55),   // 同一天的最晚一刻
+                day(2026, 6, 8, 23, 0),    // 比窗口早一整天
+                day(2026, 6, 15, 8, 0),    // 今天
+            ),
         )
-        return DeckRepository(document, scope).streak(now)
+        assertEquals(
+            "窗口第一格该有 2 次：同一天从 00:05 到 23:55 的两刻都算这一天",
+            2,
+            counted.first().second,
+        )
+        assertEquals(
+            "窗口外那一天的评分被并进了第一格——分界不在日历日上，就是在少算或多算一天",
+            2,
+            counted.take(2).sumOf { it.second },
+        )
+        assertEquals("今天那一格该有 1 次", 1, counted.last().second)
+        assertEquals("整张图总共只该看见 3 次", 3, counted.sumOf { it.second })
+    }
+
+    @Test
+    fun `the daily window buckets by the device's local day, not by UTC`() {
+        // 10-31 22:00 纽约在 UTC 已经是 11-01：按 UTC 分桶会把它挪进「今天」那一格。
+        val counts = dailyOf(days = 3, now = day(2026, 11, 1, 12), at = listOf(day(2026, 10, 31, 22)))
+        assertEquals("跨 UTC 午夜的那次评分被归到了隔壁一天", 1, counts[1].second)
+        assertEquals("今天那一格本该是空的", 0, counts[2].second)
     }
 
     private fun day(year: Int, month: Int, dayOfMonth: Int, hour: Int, minute: Int = 0): Long =

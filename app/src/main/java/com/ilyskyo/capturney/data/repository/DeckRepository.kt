@@ -264,9 +264,14 @@ class DeckRepository(
         return count
     }
 
-    /** Reviews per local day for the last [days] days, oldest first. */
-    fun dailyCounts(days: Int = 30): List<Pair<LocalDate, Int>> {
-        val today = Instant.ofEpochMilli(System.currentTimeMillis()).atZone(ZONE).toLocalDate()
+    /**
+     * Reviews per local day for the last [days] days, oldest first.
+     *
+     * [now] 与 [streak] 同一个理由：不传进来就没法在 JVM 里问「窗口边界那两天算不算在里面」，
+     * 而这张柱状图上最容易被悄悄画错的就是那两格。默认值保持原样，调用点不用改。
+     */
+    fun dailyCounts(days: Int = 30, now: Long = System.currentTimeMillis()): List<Pair<LocalDate, Int>> {
+        val today = Instant.ofEpochMilli(now).atZone(ZONE).toLocalDate()
         val buckets = LinkedHashMap<LocalDate, Int>()
         for (offset in (days - 1) downTo 0) buckets[today.minusDays(offset.toLong())] = 0
         for (entry in doc.current.log) {
