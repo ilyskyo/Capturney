@@ -112,7 +112,7 @@ class LexiconFieldShapeTest {
         // 全英语最高频的几个词（见 f3dbf07）。这里不许它退回去。
         val expected = mapOf(
             "can" to "能",
-            "may" to "愿能",
+            "may" to "可以",   // 同一条 aux. 块里的「愿能」是文言说法，给用户的是可以
             "might" to "可能",
             "will" to "将",
         )
@@ -159,6 +159,22 @@ class LexiconFieldShapeTest {
             "many" to "许多的",    // a. 许多的
             "most" to "最",        // adv. 最, 最多
             "old" to "老的",       // a. 老的, 旧的
+            // 第二批：频次 80～310 逐个读出来的同类缺陷，取值同样是同一行非名词块里的原词。
+            "lead" to "引导",      // vt. 引导（原来发的是 n. 铅——金属那个名词）
+            "keep" to "保持",      // vt. 保持（原 n. 生计）
+            "start" to "开始",     // vi. 开始（原 n. 惊起）
+            "carry" to "携带",     // vt. 携带（原 n. 进位）
+            "set" to "放",         // vt. 放（原 n. 日落）
+            "pay" to "支付",       // vt. 支付（原 n. 薪资）
+            "produce" to "产生",   // vt. 产生（原 n. 生产品）
+            "meet" to "遇见",      // vt. 遇见（原 n. 会）
+            "right" to "正确的",   // a. 正确的（原 n. 权利）
+            "full" to "充满的",    // a. 充满的（原 n. 全部）
+            "little" to "小的",    // a. 小的（原 n. 一点点）
+            "well" to "很好地",    // adv. 很好地（原 n. 井）
+            "within" to "在...之内", // prep. 在...之内（原 n. 内部）
+            "offer" to "提供",     // vt. 提供（原 n. 给予）
+            "may" to "可以",       // aux. 愿能, 可以——首个义项是文言说法
         )
         val byWord = entries.associateBy { it.headword().lowercase() }
         val wrong = expected.mapNotNull { (word, want) ->
