@@ -26,6 +26,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import build_lexicon as L  # noqa: E402
 import fetch_wikidata as F  # noqa: E402
 
 
@@ -167,7 +168,10 @@ class AdjectiveMarkerIsKnownDefectTest(unittest.TestCase):
     为什么不直接补上 `a.`：实测会把改动面从 62 扩到 **474 条**（`all: 全部的→所有的`、
     `even: 相等的→平坦的` 这类都要人逐条判，而且会把 `PRIMARY_SENSES` 那 11 行改回去）。
     出路是「首块取不到东西时再往后一个块试」——影响面恰好只有现在返回 None 的那些词。
-    修好之后这条会**意外通过**而报红，那时删掉本类并把取值接进生成器。
+    本类现在断言的是**修好之后**的行为（5fff966：首块取不到就试下一个块）。
+    注意以前这两条写成 `F.first_noun_sense`——那个函数在 `build_lexicon` 里，不在
+    `fetch_wikidata`，于是它们一直在抛 AttributeError 而从未真的验过任何东西。
+    一个不跑断言的测试比没有测试更糟，所以这里显式记着这个错法。
     """
 
     def test_adjective_first_words_fall_through_to_the_next_block(self) -> None:
@@ -175,12 +179,12 @@ class AdjectiveMarkerIsKnownDefectTest(unittest.TestCase):
         # build() 把 down/back/bad/best/deep… 这 62 个常用词从词典里删掉）。
         # 现在首块取不到东西会再试下一个块，所以它断言的是**修好之后的行为**：
         # down 拿到 adv. 块的第一义项，back 拿到 vt. 块的第一义项，都不再是 None。
-        self.assertEqual("下", F.first_noun_sense("a. 向下的\nadv. 下, 下去, 降下"))
-        self.assertEqual("使后退", F.first_noun_sense("a. 后面的\nvt. 使后退, 支持"))
+        self.assertEqual("下", L.first_noun_sense("a. 向下的\nadv. 下, 下去, 降下"))
+        self.assertEqual("使后退", L.first_noun_sense("a. 后面的\nvt. 使后退, 支持"))
 
     def test_a_word_with_no_usable_block_at_all_still_returns_none(self) -> None:
         # 兜底必须是「真的什么都没有」才放弃：全是可以长的、转写的、或非中文的块。
-        self.assertIsNone(F.first_noun_sense("abbr. DNA\n[计] Xylophone-7"))
+        self.assertIsNone(L.first_noun_sense("abbr. DNA\n[计] Xylophone-7"))
 
 
 if __name__ == "__main__":
