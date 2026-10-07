@@ -125,8 +125,11 @@ class RememberSessionTest {
             visibleHint(),
         )
         compose.onNode(ratingEnabled(R.string.review_good)).performClick()
-        compose.waitForIdle()
 
+        // 评级要经过 `doc.update` → StateFlow → 重组才变成屏幕上的分子，一次 `waitForIdle()`
+        // 兜不住它：整轮跑（前面几十个用例把设备拖慢）时这里会读到 0 而红，单跑却绿。
+        // 与刚修掉的 CorruptPhoto 是同一个形状，所以用同一个办法——等到分子动了再断言它动对了。
+        compose.waitUntil(5_000L) { numerator() == 1 }
         assertEquals("评一张之后分子应当是 1", 1, numerator())
         val after = denominator()
         assertEquals(
