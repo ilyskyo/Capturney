@@ -25,3 +25,7 @@ tools/out/
 # 架构分析工具的快照输出：它们写的是「生成那一刻的工作树」，几天后只会误导读者。
 # 需要时重跑 system-modeler 即可，不必进版本库。
 docs/architecture/
+
+# 词典抓取器的 pilot 输出与临时词表
+/tools/out-pilot/
+/tools/out-words.txt
