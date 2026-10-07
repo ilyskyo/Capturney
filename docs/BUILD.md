@@ -376,6 +376,31 @@ avdmanager create avd -n <名字>-ci -k "system-images;android-34;google_apis;x8
 之后 `connectedDebugAndroidTest` 只连着它跑——2026-10-07 这么跑过一次全量：**26 条、零失败、
 一次 `No compose hierarchies` 都没有**（此前同一套在共享 AVD 上一天里红了五次）。
 
+### 但 `-ci` 那台不能和别的项目的模拟器**同时**开
+
+单开一台解决的是「抢前台」，没解决「内存」。2026-10-08 凌晨实测：另一项目的 `wl` 正在跑的时候起
+`wl-ci`，qemu 在 GPU/Vulkan 初始化那一步**停住不动**——日志四分钟一字未变（停在
+`supportsExternal…`），`adb devices` 里始终只出现 `wl` 那一台，而 `wl-ci` 的 qemu 已经吃掉约 1.6 GB
+（整机空闲从 4.85 GB 掉到 3.18 GB）。这台机器 15.4 GB，两个模拟器 + 一次 Gradle 构建装不下；
+更早两次不是「测试红」而是**JVM 根本起不来 / daemon 中途消失**，同一个原因。
+
+所以设备闸门只有两种走法：**等 `wl` 那台关掉**再跑，或者用实体机。别指望「小一点的 memory 参数」绕过去：
+`-memory 1536` 已经压到低于 AVD 自身配置了，卡的是宿主可用内存，不是 guest 配的内存。
+
+收尾只杀自己那台，两步都别用通配：
+
+```bash
+# 1) 先看清哪些 PID 属于本次的 -ci，哪些属于在跑的别的项目（按 -avd 参数区分）
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"name='emulator.exe' or name='qemu-system-x86_64.exe'\" | Select-Object ProcessId,CommandLine | Format-List"
+# 2) 按**显式 PID** 停，不要 taskkill /IM emulator.exe /F（那会一起杀掉别的项目那台）
+powershell -NoProfile -Command "Stop-Process -Id <ci 的 qemu pid>,<ci 的 emulator pid> -Force"
+```
+
+停完必须回头确认别人那台没被波及：`adb devices` 还在、`dumpsys window` 的 `mCurrentFocus` 仍是它的包、
+`pidof <它的包名>` 拿到的 pid 和动手前**是同一个**（pid 没变才说明没被重启过）。
+本次起 `-ci` 时加了 `-read-only`，guest 磁盘改动只留在内存里，所以退出后 AVD 镜像回到原样——
+设备测试要装应用，这个参数只适合「先试试能不能起来」，正式跑全量时不要带。
+
 
 ## 词典是怎么生成的
 
