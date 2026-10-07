@@ -6,6 +6,7 @@ package com.ilyskyo.capturney
 import android.app.Application
 import android.util.Base64
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.isNotEnabled
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -81,15 +82,22 @@ class CalendarStaysWithinRecordedTimeTest {
     @Test
     fun theNextMonthArrowIsDeadOnTheCurrentMonthAndWakesUpOneMonthBack() {
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.calendar_title)).performClick()
+        val next = compose.activity.getString(R.string.calendar_next)
 
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.calendar_next))
+        // 刚点开的是 ModalBottomSheet：滑入动画 + 月历格子异步组合，点完立刻断言就是在赌时序。
+        // 这条测试自己跑绿过三遍，但它和刚修掉的那条竞态是同一个形状——先等到节点进了树再断言状态。
+        compose.waitUntil(TIMEOUT_MS) {
+            compose.onAllNodes(hasContentDescription(next)).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        compose.onNodeWithContentDescription(next)
             .assert(isNotEnabled()) { "当月还能按「下一月」：这就是 #34 那张点不开的空白页" }
 
         compose.onNodeWithContentDescription(compose.activity.getString(R.string.calendar_prev))
             .assert(isEnabled())
             .performClick()
 
-        compose.onNodeWithContentDescription(compose.activity.getString(R.string.calendar_next))
+        compose.onNodeWithContentDescription(next)
             .assert(isEnabled()) { "退回上个月之后「下一月」还是死的：那是把回得来这条路也堵掉了" }
     }
 
@@ -127,6 +135,9 @@ class CalendarStaysWithinRecordedTimeTest {
         const val PAST_ID = "calendar-guard-past"
         const val PHOTO_TODAY = "calendar-guard-today.png"
         const val PHOTO_PAST = "calendar-guard-past.png"
+
+        /** 与 CorruptPhoto 那条同档：这台 AVD 的冷启动首帧能到几百毫秒。 */
+        const val TIMEOUT_MS = 5_000L
 
         const val TINY_PNG =
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg=="
