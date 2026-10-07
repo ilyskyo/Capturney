@@ -151,7 +151,18 @@ def first_noun_sense(translation: str) -> str | None:
     if not translation:
         return None
 
-    for block in BLOCK_SPLIT_RE.split(translation):
+    blocks = [b for b in BLOCK_SPLIT_RE.split(translation) if b.strip()]
+    # ECDICT 的块序**不是**义项序。行内带 aux./modal. 块的那 6 个词（can/may/might/will/must/need，
+    # 全英语最高频的一批）里有 4 个的首块是别的东西：`may` 是 n.五月、`can` 是 vt.装罐、
+    # `might` 是 n.力量、`will` 是 n.意志——而用户在真实句子里遇到的几乎只能是情态动词那个用法。
+    # 所以情态块存在时让它排第一。这条不是「按类别猜」：那 6 行是逐行读过原始 CSV 才下的结论，
+    # 取值仍逐字来自 ECDICT 自己的块，没有一处是我代拟的译法。
+    for index, block in enumerate(blocks):
+        if index and block.strip().lower().startswith(("aux.", "modal.")):
+            blocks.insert(0, blocks.pop(index))
+            break
+
+    for block in blocks:
         candidate = block.strip()
         if not candidate:
             continue
