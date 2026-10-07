@@ -149,6 +149,15 @@ def pick(word: str, zh_gloss: str, candidates: list[str], labels: dict[str, dict
     代价是明确的：子串规则会漏掉 airport/computer/bakery 这类「同一概念两种写法」。
     但漏掉的词界面照常显示英文，而错一个释义是**用户会照着去记**——
     这份数据没有人工复核环节，所以只能要一条「宁可漏、不许错」且**可复现**的规则。
+
+    还试过**第三条**更强的：用 P31 (instance of) 的类别把「电影/车站/期刊」挡在外面。
+    立论是子串规则不懂实体属于哪一类，而 P31 正好就是这一条断言。取真数据核过并**退回**，
+    因为它在同一个方向上错得更狠：`airport` 的正解 Q1248784 的类别是 `type of aerodrome`
+    （机场的上位词是 aerodrome 而不是 airport），「类别里含该词」会把它丢掉，
+    却把两个 `airport railway station` 留下——**恰好挑反**。而 `bakery` 的正解 Q274393
+    **一条 P31 都没有**（维基数据里标签比声明齐得多，越常见的小概念越可能没断言），
+    所以「要求有类别」会丢掉已知正解，「不要求」就放进所有无断言候选：两头都堵不住。
+    这三条错法都在 `tools/test_lexicon_rules.py` 里有对应的用例钉着，别只信这段注释。
     """
     if not candidates or not zh_gloss:
         return {}

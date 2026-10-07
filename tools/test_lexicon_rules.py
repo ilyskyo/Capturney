@@ -5,12 +5,13 @@
 
 为什么需要这个文件
 ------------------
-`fetch_wikidata.py` 里那条「只认中文子串」的规则，是这一轮踩了四个坑之后退回来的位置：
+`fetch_wikidata.py` 里那条「只认中文子串」的规则，是这一轮踩了五个坑之后退回来的位置：
 
 1. 按词频取前 N → 捞回 will/one/time/people 这类功能词；
 2. 按「ECDICT 首块是 n.」筛 → 捞回 aaron/abel 这类专名；
 3. 「候选唯一就收」的兜底 → 产出 `all → オール`、`good → グッド`；
-4. 「按共享汉字打分 + 唯一胜出」→ 产出 `airport → エアポート駅 (MARTA)`。
+4. 「按共享汉字打分 + 唯一胜出」→ 产出 `airport → エアポート駅 (MARTA)`；
+5. 「按 P31 类别筛掉不像名词的实体」→ 同样挑反：正解的类别不含该词，车站的含。
 
 这些结论过去只写在注释里。注释不会拦住下一个人（也不会拦住两周后的我），
 所以把每一条错法都写成一条会红的用例。**跑法**：`python3 -m unittest discover tools -v`
@@ -111,6 +112,45 @@ class ScoringRuleIsRejectedTest(unittest.TestCase):
         winners = [qid for qid, score in counts.items() if score == best]
         self.assertNotIn("Q1248784", winners, "打分规则下正解至少该进并列——它没进，说明规则本身有问题")
         self.assertIn("Q4698883", winners, "车站应当是赢家之一，这正是它产出错释义的机制")
+
+
+class ClassFilterIsRejectedTest(unittest.TestCase):
+    """第五条被退回的错法：「按 P31 (instance of) 的类别筛掉不像名词的实体」。
+
+    立论本来是——子串规则之所以挑错，是因为它不懂「那个实体是哪一类东西」；
+    而 Wikidata 的 P31 恰好就是这一条断言，于是用它给候选分类，就能把
+    电影、车站、期刊挡在外面。我取过真数据（2026-10-07，`wbgetentities props=claims`），
+    结论是**这条规则在同一个方向上错得更狠**，两条用例各钉一半证据。
+    """
+
+    # 真实取值。左侧那批是 airport/computer/bakery 三个词的候选，右侧注明它是谁。
+    P31 = {
+        "Q1248784": ["type of aerodrome"],                                    # airport 的正解
+        "Q409022": ["film"],                                                   # 中文标签「国际机场」，其实是一部电影
+        "Q4698883": ["metro station", "elevated station", "airport railway station"],
+        "Q4073688": ["metro station", "underground station", "airport railway station"],
+        "Q68": ["invention", "machine"],                                       # computer 的正解
+        "Q5157408": ["scientific journal"],                                    # 中文标签「计算机 (杂志)」
+        "Q274393": [],                                                         # bakery 的正解：一条 P31 都没有
+    }
+
+    def test_a_class_naming_the_word_keeps_the_stations_and_drops_the_airport(self) -> None:
+        # 最自然的那条写法：「P31 里出现这个英文词，就是它了」。
+        # airport 的正解 Q1248784 的类别是 "type of aerodrome"（机场的上位词用的是 aerodrome），
+        # **不含 airport**，会被这条规则丢掉；而两个轨道交通站的类别叫
+        # "airport railway station"，恰好含 airport，会被留下。
+        # 也就是说：这条规则不是不够准，是**恰好挑反**。
+        kept = [qid for qid, classes in self.P31.items() if any("airport" in c.lower() for c in classes)]
+        self.assertEqual(["Q4698883", "Q4073688"], kept)
+        self.assertNotIn("Q1248784", kept, "正解被类别规则丢掉了——这条路不能再走")
+
+    def test_the_correct_answer_for_a_common_noun_may_have_no_class_at_all(self) -> None:
+        # 退一步不要求类别匹配、只要求「有类别」也不行：bakery 的正解 Q274393 **没有 P31 断言**。
+        # 维基数据里标签比声明齐得多，越是常见的小概念越可能一条断言都没有。
+        # 于是「按类别筛」两头都堵：要求有类别会丢掉已知的正解，不要求就放进所有无断言候选。
+        self.assertEqual([], self.P31["Q274393"], "如果这条哪天不为空了，说明上游补了断言，可以重估")
+        unclassified = [qid for qid, classes in self.P31.items() if not classes]
+        self.assertEqual(["Q274393"], unclassified, "正解与错解在「没有类别」这一点上无法区分")
 
 
 if __name__ == "__main__":
