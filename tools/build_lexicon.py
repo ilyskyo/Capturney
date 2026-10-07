@@ -175,9 +175,13 @@ def first_noun_sense(translation: str) -> str | None:
             body = candidate[len(marker):]
         else:
             body = candidate[2:]
-        for raw_sense in SENSE_SPLIT_RE.split(body):
-            sense = BRACKET_RE.sub(" ", raw_sense)
-            sense = PAREN_RE.sub(" ", sense)
+        # 先剥括号里的补充说明，**再**按逗号切义项。顺序反了就会切进括号内部：
+        # `詹姆斯（姓氏, 男子名）` 先切就得到 `詹姆斯（姓氏` 这半截——一个括号不配对的
+        # 释义发到用户手机上，而界面上看不出任何异常。（全表有 137 条这样。）
+        sense_group = BRACKET_RE.sub(" ", body)
+        sense_group = PAREN_RE.sub(" ", sense_group)
+        for raw_sense in SENSE_SPLIT_RE.split(sense_group):
+            sense = raw_sense
             sense = sense.strip().strip("。．.；;，,、 ")
             if not sense or len(sense) > 14:
                 continue
