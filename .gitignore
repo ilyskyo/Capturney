@@ -27,5 +27,5 @@ tools/out/
 docs/architecture/
 
 # 词典抓取器的 pilot 输出与临时词表
-/tools/out-pilot/
+/tools/out-*/
 /tools/out-words.txt
