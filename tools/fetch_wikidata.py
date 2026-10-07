@@ -171,6 +171,8 @@ def main() -> int:
     parser.add_argument("--words", default="", help="可选：自己给一份词表（一行一个词，可跟一个 TAB 加中文释义）")
     parser.add_argument("--out-dir", default="tools/out")
     parser.add_argument("--apply", action="store_true", help="写进 assets/lexicon/gloss-*.json")
+    parser.add_argument("--replay", default="",
+                        help="不发任何请求，只按这份候选快照重新判定（用来验规则可复现）")
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -179,6 +181,21 @@ def main() -> int:
     progress: dict[str, dict[str, str]] = (
         json.loads(progress_path.read_text(encoding="utf-8")) if progress_path.exists() else {}
     )
+
+
+    if args.replay:
+        # 不发任何请求，只按快照重新判一遍，并把每个词的候选标签与得分摊开。
+        # 存在的意义就是证伪「规则可复现」这件事：同一份快照跑两次，结论必须逐字相同。
+        snap = json.loads(Path(args.replay).read_text(encoding="utf-8"))
+        rows = []
+        for word, record in sorted(snap.items()):
+            entry = pick(word, record.get("gloss", ""), record["candidates"], record["labels"])
+            rows.append({"word": word, "verdict": entry, "candidates": record["candidates"],
+                         "zh": {q: (record["labels"].get(q) or {}).get("zh", "") for q in record["candidates"]}})
+        Path(args.replay).with_name("replay.json").write_text(json.dumps(rows, ensure_ascii=False, indent=1), encoding="utf-8")
+        hits = sum(1 for r in rows if r["verdict"])
+        print(f"replay：{len(rows)} 词，判定 {hits} 条有值 -> {Path(args.replay).with_name('replay.json')}", file=sys.stderr)
+        return 0
 
     pairs = load_words(args.limit)
     if args.words:
@@ -194,6 +211,7 @@ def main() -> int:
     print(f"{len(pairs)} 词待覆盖，其中 {len(todo)} 个没查过", file=sys.stderr)
 
     skipped: list[str] = []
+    snapshot: dict[str, dict] = {}
     for start in range(0, len(todo), 20):
         batch = todo[start:start + 20]
         try:
@@ -212,9 +230,17 @@ def main() -> int:
             continue
         for word, zh in batch:
             progress[word.lower()] = pick(word, zh, candidates.get(word, []), labels)
+        for word, _ in batch:
+            snapshot[word.lower()] = {
+                "gloss": dict(batch).get(word, ""),
+                "candidates": candidates.get(word, []),
+                "labels": {qid: labels.get(qid, {}) for qid in candidates.get(word, [])},
+            }
         done = min(start + 20, len(todo))
         print(f"  已查 {done}/{len(todo)}，命中 {sum(1 for v in progress.values() if v)}", file=sys.stderr)
         progress_path.write_text(json.dumps(progress, ensure_ascii=False), encoding="utf-8")
+
+    (out_dir / "candidates.json").write_text(json.dumps(snapshot, ensure_ascii=False), encoding="utf-8")
 
     ja = [{"id": f"en.{w}", "word": v["ja"]} for w, v in sorted(progress.items()) if v.get("ja")]
     ko = [{"id": f"en.{w}", "word": v["ko"]} for w, v in sorted(progress.items()) if v.get("ko")]
