@@ -200,6 +200,13 @@ class LexiconFieldShapeTest {
             "lie" to "说谎",       // 原发 n. 谎言
             "break" to "打破",     // 原发 n. 休息
             "pass" to "通过",      // 原发 n. 经过
+            // 第五批：这次新放进来的核心虚词里，最常被看到的六个。
+            "have" to "有",        // 原发 aux. 已经
+            "but" to "但是",       // 原发 prep. 除了
+            "up" to "向上",        // 原发 a. 向上的（「起床的」是它的第二个义项）
+            "out" to "在外",       // 原发 a. 外面的（「熄灭的」）
+            "about" to "关于",     // 原发 prep. 在...周围
+            "as" to "当作",        // 原发 adv. 同样地
         )
         val byWord = entries.associateBy { it.headword().lowercase() }
         val wrong = expected.mapNotNull { (word, want) ->

@@ -168,6 +168,16 @@ PRIMARY_SENSES = {
     "lie": "说谎",       # vi. 躺着, 说谎, 位于（n. 那块是「谎言」这个名词化）
     "break": "打破",     # vt. 打破, 弄破, 弄坏, 破坏, 违反（原 n. 休息）
     "pass": "通过",      # vt. 经过, 越过, 通过, 批准（原 n. 经过）
+    # 第五批：这一批不是「块排错」也不是「首义项偏」的旧账，而是**放进来的一千个核心虚词**里
+    # 最常被看到的六个（`the/be/and/of` 那批的释义本来就大体对，这六个不然）。
+    # 每条都对着**不截断**的整行读过（上一次我从截断的 6 个义项里把 account 补成「账户」，
+    # 原文其实是「帐目」——那一错进了记忆，这一批的读法因此是整行打印出来再挑）。
+    "have": "有",        # vt. 有, 怀有, 拿, 进行（规则取到的首块首义项是 aux. 的「已经」）
+    "but": "但是",       # conj. 但是（首块是 prep. 除了）
+    "up": "向上",        # adv. 向上, 上涨（首块是 a. 向上的, 起床的, 涨的）
+    "out": "在外",       # adv. 在外, 熄灭, 出现（首块是 a. 外面的, 熄灭的, 结束的）
+    "about": "关于",     # prep. 在...周围, 大约, 有关, 关于
+    "as": "当作",        # prep. 做为, 当作（首块是 adv. 同样地, 例如）
 }
 
 # efficientdet_lite0 输出的 COCO-80 类名里的单词成分。这些词必须在词典里：
@@ -350,9 +360,17 @@ def build(args: argparse.Namespace) -> int:
             # Reject proper nouns: ECDICT does not mark them, but a capitalised first letter
             # with no lowercase form in the corpus is a good proxy.
             first = raw_word[0]
-            if first.isupper() and raw_word.lower() not in DETECTOR_VOCAB:
-                skipped["proper"] += 1
-                continue
+            if first.isupper():
+                # 这条本意是把人名/姓氏挡在外面（aaron/abel/kennedy 那种「男子名」释义），
+                # 可 ECDICT 把 **十二个月名与七个星期名** 也写成首字母大写，于是它们一起被挡掉了
+                # ——用户拍到「Sunday」时词典里根本没有这个词，而这是日记应用最核心的词汇。
+                # 判据用 ECDICT 自己带的常见度信号：oxford=1（牛津核心词）或有考纲 tag（zk/gk/cet4…）
+                # 的是「要学的词」，两个都没有的专名照旧不收。改完后 april/monday 进得来，aaron 进不来。
+                has_signal = (row.get("oxford") or "").strip() == "1" or bool((row.get("tag") or "").strip())
+                if not (has_signal or raw_word.lower() in DETECTOR_VOCAB):
+                    skipped["proper"] += 1
+                    continue
+                raw_word = raw_word.lower()
 
             word = strip_accents(raw_word.lower())
             if not WORD_RE.match(word):
@@ -380,8 +398,14 @@ def build(args: argparse.Namespace) -> int:
 
             freq = frequency_rank(row)
             if freq == 0:
-                # 检测器词表里的词没有排名也收：排在最后，但必须在。
-                if word not in DETECTOR_VOCAB:
+                # 「没有排名」不等于「不是常用词」：ECDICT 对 **april / monday / cannot / email /
+                # glasses / dvd** 这类词根本记 frq/bnc（值是 0），而它们全都带 oxford=1 或考纲 tag。
+                # 旧代码把 0 当成「最差排名」直接 skip，于是十三个月名、七个星期名和一批核心词
+                # 就这样从词典里消失了（实测已发数据缺 1153 个 oxford=1 的词）。
+                # 现在只在「另一个常见度信号存在」时收下，并排到最后——既不冒充它是高频词，
+                # 也不让用户拍到「Sunday」时被告知词典里没有这个词。
+                has_signal = (row.get("oxford") or "").strip() == "1" or bool((row.get("tag") or "").strip())
+                if not has_signal and word not in DETECTOR_VOCAB:
                     skipped["freq"] += 1
                     continue
                 freq = 10_000_000

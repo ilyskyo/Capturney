@@ -404,12 +404,28 @@ powershell -NoProfile -Command "Stop-Process -Id <ci 的 qemu pid>,<ci 的 emula
 
 ## 词典是怎么生成的
 
-`assets/lexicon/en.json`（约 12000 条）由 `tools/build_lexicon.py` 从 ECDICT（MIT）的 CSV 生成：
+`assets/lexicon/en.json`（现 13055 条）由 `tools/build_lexicon.py` 从 ECDICT（MIT）的 CSV 生成：
 
 ```bash
 curl -L -o ecdict.csv https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv
-python3 tools/build_lexicon.py ecdict.csv --out app/src/main/assets/lexicon/en.json
+# --limit 必须 >= 现有条数：默认的 12000 会把选中的集合截断，
+# 实测那次「重生成会丢 3621 个 id、又多出 3635 个」根本不是筛选口径变了，纯粹是被 --limit 截的。
+# 想先看影响就写到 scratch 路径（守卫只在 --out 指向已存在的文件时才拦，见下）。
+python3 tools/build_lexicon.py ecdict.csv --out app/src/main/assets/lexicon/en.json --limit 20000
 ```
+
+两处筛选口径在 2026-10-08 放宽过，别再改回去，它们挡的是真实缺陷：
+
+- **首字母大写不再一律当专名丢掉**。ECDICT 把十二个月名与七个星期名写成 `January`/`Monday`，
+  旧规则一句 `first.isupper()` 就把它们连同人名一起排除，结果是**日记应用里没有 Sunday**。
+  现在只在「该行既没有 `oxford=1` 也没有任何考纲 tag」时才当专名处理，所以 april/monday 进得来、
+  aaron/kennedy 依旧进不来。
+- **`frq`/`bnc` 记为 0 不等于不使用**。0 在 ECDICT 里是「没有排名数据」，旧规则把它当最差排名直接 skip。
+  现在只要该行有 `oxford=1` 或 tag 就收下，并把 frequency 排到最后（不冒充高频词）。
+
+这两条放宽一共放进来 1049 个核心词（`the/be/and/of/have/about/able/january/sunday`…），
+其中六个的主义项仍然偏（`have` 取到 aux. 的「已经」、`but` 取到 prep. 的「除了」、
+`up` 取到「起床的」），已按 `PRIMARY_SENSES` 逐条改回原行里对的那个义项。
 
 生成物提交进仓库，这样 clone 之后不需要再跑 Python。
 
