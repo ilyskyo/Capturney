@@ -28,7 +28,8 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 ```bash
 ./gradlew assembleDebug          # debug APK，applicationId 带 .debug 后缀
 ./gradlew installDebug           # 装到已连接的设备
-./gradlew testDebugUnitTest      # 298 个 JVM 单测，毫秒级
+./gradlew testDebugUnitTest      # 325 个 JVM 单测，毫秒级（数量会漂，要准的看 app/build/test-results/）
+./gradlew connectedDebugAndroidTest   # 25 个设备测试，要有一台已连着的设备/AVD，约 2 分钟
 ./gradlew assembleRelease        # R8 + shrinkResources + lintVitalRelease
 ```
 
@@ -37,6 +38,21 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 本机 AVD 叫 `wl`（`system-images;android-34;google_apis;x86_64`，WHPX 加速）。
 debug 变体额外打一份 `x86_64` 原生库（`app/build.gradle.kts` 的 `debug.ndk`），release 仍然
 arm64-only——不这么做就得让 MediaPipe 跑在 ARM→x86 转译上，实测一次安装能卡十分钟。
+
+### 跑 `connectedDebugAndroidTest` 之前要知道的四件事
+
+1. **CI 上没有模拟器 job**，这一套是**本地守卫**。改完界面别只看单测绿了就认为设备上没问题。
+2. **跑完 AGP 会卸载被测 App**。所以「跑完之后用 `adb shell run-as` 去查文件」是查不到的——
+   那条命令只会回 `unknown package`，而如果两边都取到这句报错，`diff` 会输出「一致」，
+   比没验还糟。要在同一次运行内证明（见 `PreserveAppFilesTest`）。
+3. **它会在真数据上落夹具**：时间轴与复习页那几条走 `diary.addEntry` / `deck.add` 写入，
+   跑完各自走 `deleteEntry` / `delete` 抹掉，外层再套 `PreserveAppFiles` 还原 `filesDir`。
+   磁盘还原救不了**进程内的文档态**——同一个进程会连着跑完多个方法，所以夹具必须自己收。
+4. **偶发的 `No compose hierarchies found in the app` 多半不是本仓库的问题**：这台机器上还有
+   另一个项目（`com.ilyskyo.blancall`）会周期性跑到前台，把正在被量的 Activity 挤下去，
+   谁在那一刻量树谁就红。分辨方法很简单——**单独重跑同一套就绿**。
+   要根治：跑之前 `adb shell am force-stop com.ilyskyo.blancall`，或给设备测试单开一台干净 AVD。
+   本仓库一侧不加等待逻辑，那只会掩盖别人的窗口。
 
 它**值得**用来做的：静态布局与配色——页签胶囊盖住内容、拍照键没有底盘、图标被 tint 抹成一团，
 这三处都是在这里第一次被看见的，而类型检查、单测与 lint 对它们全都没有意见。
