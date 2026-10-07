@@ -55,6 +55,7 @@ private fun readCapped(input: InputStream, limit: Int): ByteArray? {
     }
 }
 
-private const val MAX_IMPORT_BYTES = 8 * 1024 * 1024
+/** 上限。`internal` 只为了让 `ImportLimitMatchesMessageTest` 能把这个数字与四语文案里的数字对得上。 */
+internal const val MAX_IMPORT_BYTES = 8 * 1024 * 1024
 private const val CHUNK_BYTES = 8 * 1024
 private const val CAPACITY_HINT = 64 * 1024
