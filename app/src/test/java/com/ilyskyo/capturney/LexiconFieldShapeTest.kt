@@ -131,6 +131,47 @@ class LexiconFieldShapeTest {
         )
     }
 
+    @Test
+    fun theMostFrequentWordsAreGlossedWithTheirCommonSense() {
+        // ECDICT 把 `n.` 块排在前面**与这个词的常见用法无关**：只要它有名词义就先列。
+        // 于是全英语最常用的那批词拿到的是生僻名词义：`give=弹性`、`good=善行`、`still=蒸馏室`、
+        // `leave=许可`、`want=需要的东西`、`like=同样的`、`mean=卑贱的`、`high=高度`、
+        // `many=多数`、`most=最多`、`old=以前`。正确取值都在**同一行的后面几个块**里，
+        // 下面每个期望值都是 ECDICT 自己的词，不是任何人代拟的译法。
+        //
+        // 为什么是「逐词一张表」而不是一条规则，两条捷径都被实测否证过：
+        //  * 「取首个非名词块的首个义项」有 4 个直接错——still→蒸馏(v. 蒸馏)、like→相似的(a. 相似的)、
+        //    mean→低劣的(a. 低劣的)、most→大多数的(a. 大多数的)；
+        //  * 按该中文串在 ECDICT 全语料里的出现次数排序，会改写 4531 条且条条变差（see→游览、take→抓）。
+        //
+        // 另注意 `first_noun_sense` 目前还**不认识**这些后续块，所以整表重生成会让这条变红。
+        // 那是有意的记号：红的时候要么把逐词取值接进生成器，要么逐条重核，
+        // 不许把这里的期望值改成生成器的输出。
+        val expected = mapOf(
+            "give" to "给",        // vt. 给, 授予, 供给
+            "good" to "好的",      // a. 好的, 优良的
+            "still" to "静止的",   // a. 静止的, 不动的
+            "leave" to "离开",     // vt. 离开, 剩下
+            "want" to "要",        // vt. 要, 希望, 应该
+            "like" to "喜欢",      // vt. 喜欢, 愿意
+            "mean" to "意谓",      // vt. 意谓, 想
+            "high" to "高的",      // a. 高的, 高级的
+            "many" to "许多的",    // a. 许多的
+            "most" to "最",        // adv. 最, 最多
+            "old" to "老的",       // a. 老的, 旧的
+        )
+        val byWord = entries.associateBy { it.headword().lowercase() }
+        val wrong = expected.mapNotNull { (word, want) ->
+            val actual = byWord[word]?.motherTongueGloss()
+            if (actual == want) null else "$word=${actual ?: "(缺)"}（应为 $want）"
+        }
+        assertTrue(
+            "有 ${wrong.size} 个最常用的词发出去的是生僻名词义：$wrong。" +
+                "这些是用户每天看到的行，取错块等于教错",
+            wrong.isEmpty(),
+        )
+    }
+
     private fun JsonObject.headword(): String = getValue("words").jsonObject.getValue("en").jsonPrimitive.content
 
     private fun JsonObject.motherTongueGloss(): String? =
