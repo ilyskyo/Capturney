@@ -3,8 +3,10 @@
 
 package com.ilyskyo.capturney
 
+import com.ilyskyo.capturney.data.repository.AppSettings
 import com.ilyskyo.capturney.vision.CloudVisionEngine
 import java.io.File
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -30,23 +32,47 @@ class UserSuppliedAiOnlyTest {
     private val repoRoot: File by lazy { module.parentFile ?: module }
 
     @Test
-    fun `the cloud backend is off by default both in the model and on the way out of storage`() {
+    fun `the cloud backend is off by default on the way out of storage`() {
         val settings = File(
             module,
             "src/main/java/com/ilyskyo/capturney/data/repository/SettingsRepository.kt",
         ).readText()
 
         assertTrue(
-            "Settings 数据类里 cloudEnabled 的默认值不再是 false——新装机的设备会自己往外发",
-            Regex("val\\s+cloudEnabled:\\s*Boolean\\s*=\\s*false").containsMatchIn(settings),
-        )
-        assertTrue(
             "从偏好里读 cloudEnabled 时兜底不再是 false——第一次读旧数据会把云端打开",
             Regex("""CLOUD_ON\]\s*\?:\s*false""").containsMatchIn(settings),
         )
+    }
+
+    /**
+     * 「要用户自己打开、而且要他自己填密钥」这条门用**行为**守。
+     *
+     * 原来那两行 grep（认 `= false` 与 `cloudEnabled && cloudApiKey.isNotBlank()` 的字面形状）不是
+     * 没用，但它有两处够不着：
+     * - **「空白字符算不算有密钥」这一格它表达不了**。换成 `isNotEmpty()` 它确实会红，可写成
+     *   `cloudApiKey.trim().isNotEmpty()` 或 `cloudApiKey != ""` 它就都看不见——而后者正是
+     *   一个只填了空格的用户把照片往外发的那条路。
+     * - 它**只认写法不认效力**：同样的表达式被抄到一个没有读取方的属性上，或者读取那侧改成直接用
+     *   `cloudEnabled`，字面还在、门已经没了。
+     * 所以这里直接构造四种组合读它的答复。
+     */
+    @Test
+    fun `the cloud gate needs both the switch and a non-blank key`() {
+        assertFalse(
+            "AppSettings() 的 cloudEnabled 不再是 false：一台新装机从没碰过开关就已经往外发",
+            AppSettings().cloudEnabled,
+        )
+        assertFalse(
+            "只填了密钥、开关没打开，就认为可以往外发了",
+            AppSettings(cloudEnabled = false, cloudApiKey = "a-key").cloudReady,
+        )
+        assertFalse(
+            "开关打开但密钥是空白字符，也算 ready——那等于对着一个没有凭据的端点发请求",
+            AppSettings(cloudEnabled = true, cloudApiKey = "   ").cloudReady,
+        )
         assertTrue(
-            "cloudReady 不再同时要求「开着」与「有密钥」：只有一个是拦不住往外发的",
-            Regex("""cloudEnabled\s*&&\s*cloudApiKey\.isNotBlank\(\)""").containsMatchIn(settings),
+            "开关与密钥都齐了却还不 ready：这条承诺不该顺手把用户明确打开的功能弄坏",
+            AppSettings(cloudEnabled = true, cloudApiKey = "a-key").cloudReady,
         )
     }
 
