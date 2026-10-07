@@ -386,8 +386,33 @@ curl -L -o ecdict.csv https://raw.githubusercontent.com/skywind3000/ECDICT/maste
 python3 tools/build_lexicon.py ecdict.csv --out app/src/main/assets/lexicon/en.json
 ```
 
-生成物提交进仓库，这样 clone 之后不需要再跑 Python。中/日/韩的词典数据还没有，`LexiconEntry.words`
-的结构已经支持多语言，缺的是数据来源。
+生成物提交进仓库，这样 clone 之后不需要再跑 Python。
+
+### 日语/韩语的背面释义：`gloss-<lang>.json` 补丁层
+
+`en.json` 每条带 `glosses`（目前只有 `zh`）。日语/韩语用户翻到背面看到的那一行来自另外两个文件
+`assets/lexicon/gloss-ja.json` / `gloss-ko.json`——它们**不是词典而是补丁**，按条目 id 叠上去，
+由 `LexiconRepository` 加载（遇到不认识的 id 只记一条 warning 就跳过）。
+
+补这批数据用 `tools/fetch_wikidata.py`（Wikidata 的标签是 **CC0**，放进 MIT 仓库没有许可摩擦，
+而且是各语言社区的人写的，不是机器翻的）：
+
+```bash
+python3 tools/fetch_wikidata.py --limit 400 --out-dir tools/out   # 先落到 tools/out，可中断续跑
+python3 tools/fetch_wikidata.py --limit 400 --apply               # 合并进 assets（不覆盖）
+```
+
+三条不能改的规矩，都写在工具里：
+
+- **消歧靠我们已有的中文释义**。`cup` 在 Wikidata 里有好几个同名实体，只按「英文标签相等」
+  要么挑错要么全放弃（实测放弃到只剩 2/12）；改成「候选里恰好一个的中文标签出现在该词的
+  ECDICT 中文释义里」之后命中率翻倍，且抽查全对。
+- **宁缺勿滥**。释义是要被评级的那一行，给错比没有糟得多：值必须含假名/汉字（ja）或谚文（ko），
+  判不准就留空。
+- **`--apply` 只合并、且拒绝让条数变小**。已发布的那份是手工攒出来的，整文件覆盖会静默冲掉它。
+
+`GlossOverlayCoverageTest` 守着这份数据的四条性质：每个 id 还在 `en.json` 里、ja 与 ko 覆盖同一批词、
+条数不倒退、每条值真的含该语言字符。四条都各自被注入验证过会红。
 
 ## 三个已经踩过的坑
 
