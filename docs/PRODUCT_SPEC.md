@@ -1,0 +1,509 @@
+# Capturney（见词）产品说明书
+
+> 交接文档。以产品经理视角写：先说这个软件是什么、替谁解决什么问题，再拆到每个页面的
+> 交互细节与取舍。代码现状见文末「已完成 / 待做」。
+>
+> 状态：v0.9，MIT 开源，`compileSdk 36 / minSdk 26 / targetSdk 36`，包名 `com.ilyskyo.capturney`
+
+---
+
+## 1. 一句话定义
+
+**举起手机，画面里的东西自动变成可以点的词；点了什么就记住那个词，没点就存下整个场景。**
+
+它不是背单词 App 加一个拍照按钮。顺序反过来：**先是日记，记忆是副产品**。
+
+---
+
+## 2. 要解决的问题
+
+市面上的「拍照记单词」大多做成了这样：拍完 → AI 认出图 → 给你一张词卡 → 扔进复习队列。
+
+这条链断在两处：
+
+| 断裂 | 用户的实际感受 |
+|---|---|
+| 拍照前要先选模式（物体/场景），或拍完再选要记什么 | 「我就想拍张照」，多一步决策就少一半人 |
+| 词和画面分离 | 复习时看到的是「cup /kʌp/ 杯子」，但**想不起来是在哪见过的** |
+
+第二处更要命。人回忆一个词靠的是**画面**，不是那一行字。Capturney 的整个结构就是为了保住这个画面。
+
+---
+
+## 3. 目标用户
+
+**主要**：已经有一定词汇量、在真实生活里遇到生词的人。拍照是他们原有的学习习惯，我们只是让这个动作顺便留下记忆。
+
+**次要**：想学外语、但讨厌做题和背表的人。走 FSRS 间隔复习，但复习的入口是「那天在哪见过」。
+
+**不是**：刷榜型用户。不做社交、不做排行榜、不做公开分享（见 §8.4）。
+
+---
+
+## 4. 核心交互：点不点，决定存什么
+
+这是整个产品的地基，也是最容易被做错的地方。
+
+### 4.1 早期方案：模式开关（已否掉）
+
+「物体模式 / 场景模式」，拍照前切换。看起来清晰，实际有两个问题：
+
+- 拍照那一刻用户**并不知道自己想记什么**。看到一杯咖啡才决定要记 cup，切换模式发生在动机之后，所以每次都别扭。
+- 多一次选择就少一半完成率。这不是设置项，这是漏斗。
+
+### 4.2 现行方案：动作二分
+
+用户在取景器上**点某个物体**，或者**不点直接按快门**。就这两种，别的都没有。
+
+| 用户动作 | 落库 | 去向 | 视觉 |
+|---|---|---|---|
+| 点了某个词片 | `WordCard` + 抠图贴纸 | 「记住」页 | 卡片有 die-cut 白色描边，像贴纸 |
+| 没点，直接快门 | `Entry` 整张照片 + 氛围词 | 「回看」页时间轴 | 时间轴卡片 |
+| 拍完补一句当时发生了什么 | `EventCard`（`source=USER`） | 「记住」页 | 无抠图，照片作缩略图 |
+
+**「不点」不是一个失败分支，它是完整的一个产品动作。** 随手拍一张街景、记下当时的感觉，这本身就是日记。给它一个「你什么都没选」的空状态，等于告诉用户这次拍照白拍了。
+
+### 4.3 覆盖层：两类词，分轻重
+
+取景画面上同时浮着两种词，视觉权重由 `ShotClassifier` 的判帧结果分配：
+
+- **物品词片**（`OverlayLayer.ITEM`）：锚在检测框**上方**，可点，点了推近镜头。
+  锚在上方而不是中心——词压在杯子正中间会挡住用户真正在看的东西。
+- **氛围词**（`OverlayLayer.AMBIENCE`）：自由分布，非交互。
+
+权重分配规则：
+
+| 判帧 | 物品词 | 氛围词 |
+|---|---|---|
+| `OBJECT`（主体饱满） | 最大、最醒目 | 缩到角落 |
+| `SCENE`（环境） | 降为点缀 | 铺开 |
+| `UNCLEAR` | 中性 | 中性 |
+
+`ShotClassifier` 因此**降级为视觉权重分配器**，不再是模式门。判不清就取中性——**用户点哪个本身就是最终裁决**。
+
+### 4.4 镜头推近
+
+点词片 → `CameraFocusController` 逐帧下发 `SCALER_CROP_REGION` → 物体移到画面中央 → 抠图 → 存词。
+
+- 320ms（用户主动点）/ 180ms（隐式聚焦），smoothstep 缓动。
+- 必须走 Camera2 interop：`setZoomRatio` 只能**居中**放大，没法把物体推到中央。
+- 动画起点**自己记**（`lastCrop`），不用 `zoomState` 反推。反推只在裁切居中时成立，而我们的动画会把裁切推偏——表现为「连续聚焦第二个物体时从错误位置开始移动」。这种 bug 在真机上极难察觉，因为画面看起来确实在动。
+
+---
+
+## 5. 信息架构
+
+```
+首页（两级，无第三个 tab）
+├─ 顶部胶囊页签
+│   ├─ 回看   ← 时间轴，主页
+│   └─ 记住   ← 复习
+├─ 底部常驻（仅一级页面出现）
+│   ├─ 📷 左
+│   └─ 🔍 右
+├─ 二级页
+│   ├─ 取景器（拍照）
+│   ├─ 条目详情
+│   ├─ 设置
+│   └─ 搜索 / 添加
+└─ 桌面小组件：今日待复习数
+```
+
+**为什么没有第三个 tab**：`词库` 作为独立页面没有价值——词汇库就是时间轴的一个筛选视图。分散成三个平级页面会让「今天该做什么」变得不明显，而这个问题每天都要回答一次。
+
+### 5.1 底部两个圆
+
+**参考 Apple 最新 tab 的视觉规范，但不做液态玻璃。** 理由：液态玻璃在 Android 上没有原生支持，做出来的都是模拟，还损失了可读性。
+
+- 两个**独立**悬浮圆，不是一个胶囊拆两半。
+- 56dp 视觉直径 / **88dp 触摸目标**（无障碍下限）。
+- 主色**只用在拍照键**上。搜索键是中性色——强调拍摄符合产品定位（「拍下来」是主动作）。
+- 二级页面隐藏，避免和页面内容抢注意力。
+
+---
+
+## 6. 两个主页
+
+### 6.1 回看 —— 时间轴
+
+日记的主路径，不是设置项。
+
+- **按天分组**，今天 / 昨天 / 具体日期。前两种用相对说法——昨天那天的日期数字其实不携带信息。
+  分组键存 ISO 日期而不是标签文本：标签随界面语言变，而 `LazyColumn` 的 key 一变整列重建。
+- 时间轴卡片**两种形态**：
+  - 有点纸：照片 + 散落的贴纸词（±3° 轻微旋转，手贴上去的感觉）。
+  - 无贴纸：纯照片 + 摘要 + 关键词。
+- 点击 → 条目详情：**在原图上重新把词长回物体上**（`EntryObject` 存的是四角归一化坐标，不是中心点加尺寸）。
+- 顶部问候语随时段变化（`timeOfDayGreeting`）。
+
+**`EntryObject` 为什么存四角坐标**：回看时要在图上画出框，不同宽高比下「中心 + 尺寸」与真实框的误差远大于四角直接存储。这条是「场景式」和普通日记的分界线。
+
+### 6.2 记住 —— 复习
+
+顶部二级切换：**词汇 / 事件**（`StudyMaterial` 还有第三档「都要」，多数时候用户就是想一起练，分开意味着要切两次页签）。
+
+- 卡片**沿 Y 轴翻转**动效。
+- 评级：**模糊 / 记住了** → 继续参与 FSRS 调度。
+- **「标记已掌握」放长按菜单，不和评级混在一起。**
+
+  实现细节：归档之后卡片永久退出队列，而**这个动作必须能撤销**。入口是复习页进度条下面常驻的
+  「已归档 N 张」，点开是一个只负责列出来和「取消标记」的弹窗。它不只在空状态里出现——
+  刚归档完那张卡后面还有下一张，如果入口只藏在队列清空之后，用户就没有反悔的地方了。
+
+**这条很容易做错**：FSRS 里 EASY 会给出很长的间隔，界面上看着像「学完了」。但长间隔 ≠ 已掌握。一旦把两者混为一谈，用户会把还没真记住的词归档掉，而 FSRS 之后再也不会提醒他。
+
+| | `WordCard` | `EventCard` |
+|---|---|---|
+| 正面 | 单词（或释义） | 一句事件描述 |
+| 背面 | 音标、翻译、例句 | 原始要点、时间、照片 |
+| 方向 | 认识 / 产出**两套** FSRS 状态 | 只有一套 |
+| 视觉 | 抠出来的贴纸 | 照片缩略图 |
+
+**为什么事件也做成卡片**：用户想练的不只是外语词，还有「那天发生了什么」。按间隔重复回放某一天的片段是真实有效的记忆训练，而且是这本日记**独有**的能力——背单词 App 做不到这个。两者共用同一个调度器（而不是写两套），是为了以后能得出「哪种素材更容易记住」的结论。
+
+事件没有「产出」方向：复述一段经历和认出它的难度相同，所以只给一个状态。
+
+### 6.3 四语双向
+
+`Lang.ENGLISH / CHINESE / JAPANESE / KOREAN`。
+
+- 认识 `cup` 和产出 `カップ` 是**两个不同的记忆**，各有独立的稳定度和遗忘次数，所以 `states` 按 `StudyDirection.name` 分开存。
+- 词卡正面显示哪种语言由设置里的 `direction` 决定，不是每张卡各自决定。
+- TTS 用 `TextToSpeech`。**中/日 TTS 质量随引擎差异极大**，所以界面要有 `voiceHint` 告诉用户「现在这个引擎念出来是什么样」以及怎么改善。
+
+### 6.4 一句当时的声音
+
+每条日记可以带一段**最多 90 秒**的录音，存在 `filesDir/audio/a-<entryId>.m4a`。
+
+- **不转文字，也不做语音识别**。这条是产品的边界而不是偷懒：自己说过一遍的词和读过一遍的词是
+  两种记忆，而这本日记是由场景组成的。转成文字就把它变回文本，那是别的词汇应用已经在做的东西。
+  所以这条路上没有识别、没有云端、没有后台服务：录、存、放、删。
+- 它是**附件而不是卡片**：不进 FSRS 队列、不参与复习评级。复习要的是能被判对错的单位，
+  而一句自己说的话没有「答对」这回事。
+- 时长读数存在条目上（`audioDurationMs`），不是每次现问播放器：「一条 00:12 的声音」和
+  「一条 01:30 的声音」是两种要不要听，而问 `MediaPlayer` 得先把文件打开并准备——
+  那是一次几十毫秒的异步，做不进一行列表读数。
+- **人声不上云**，理由与照片同一条（§8.7），而且更严：语气、停顿、背景里有人在说话，
+  都是能认出人的信息。默认云备份走的是 `<include>` 白名单（只列 deck/diary 两个 JSON），
+  所以 `files/audio` 按构造就不在备份里；`diary.json` 里只有文件名。
+- 没被任何条目引用的 .m4a 不能活过一次启动：那段声音从没被用户同意留下过（§8.4 的同一套理由）。
+  这一扫挂在 `DiaryRepository.loadAsync` 里，因为排序错了不会报错，只会清光用户的录音。
+- 权限只在用户按下「录一段」那一刻要，`microphone` 声明为 `required=false`：没有麦克风的平板
+  少了这一种记法，而不是少了这本日记。
+
+---
+
+## 7. 记忆调度：FSRS-6
+
+自己移植，已对照 awesome-fsrs wiki 与 fsrs4anki 官方 JS 校验。
+
+修过 Blancall 版本的两处缺陷：
+
+1. **同日复习下限缺失**：`stability = max(stability, 1)`，否则同日连续复习会让间隔塌到 0。
+2. **缺两位小数取整**，导致日期间隔在小数位上漂移。
+
+`requestRetention` 默认 0.9（Anki 的默认值）。
+
+---
+
+## 8. 几条硬规矩（每条都有具体的理由）
+
+### 8.1 AI 生成的内容必须标来源
+
+`ReviewSource.AI` 的事件，**复习时提示用户核对原文**。
+
+这不是免责声明，是功能缺陷的修复：AI 摘要**可能本身就是错的**，而复习会不断巩固它。不标记的话，一个错误会被 FSRS 当成正确记忆刻进长期记忆——那比没有这个功能更糟。
+
+`Entry.summarySource` 同理。用户自己写的东西被 AI 改过，要明确告知，不能悄悄替换。
+
+### 8.2 不做具体性过滤
+
+同类产品会过滤抽象词（只保留看得见的名物）。这里**故意不做**——匹配由检测器驱动，抽象词在场景模式下是**资产**：「孤独」「匆忙」正是拍照那一刻最该记住的。
+
+### 8.3 软件不带在线 AI
+
+只提供「用户填自己的 API Key」的可选后端（`CloudVisionEngine`）。默认关闭。
+
+- 默认全本地运行。
+- `redactBeforeUpload = true`：上传前剥掉 EXIF / 位置信息。
+
+### 8.4 不做公开分享
+
+没有分享入口。照片比单词卡敏感得多（家、孩子、证件），而这本日记的价值完全建立在「它只在我的机器上」之上。加分享是**另一个产品决策**，会连带影响 `mood` 是否可空，不在当前范围内。
+
+### 8.5 API Key 明文存 DataStore
+
+已确认的取舍，不是疏忽。key 属于用户，除了他主动发起的请求外不出设备；引入 keystore 意味着要么用已废弃的 API，要么背上一个维护负担。
+
+### 8.6 存储用明文 JSON
+
+原子写 + 损坏留证（损坏文件重命名保留，不静默丢弃）。
+
+**条目 id 在文档内唯一，写入口自己守住这条不变式**：`deck.add`、`diary.addEvent`、`diary.addEntry` 三处都按 id 判重，第二次提交是 no-op 而不是多一条。理由不在「多一条难看」——更新、删除、附件与详情页全都按 `firstOrNull { it.id == … }` 找条目，而时间轴拿条目 id 当 LazyColumn 的 key，一条重复 key 抛的是 `IllegalArgumentException`。一份能被手改、能被 git diff 的明文 JSON，不该把唯一性交给调用方自觉。
+
+Room 能扛更大规模、查询也更方便，但**明文 JSON 可以 git diff、可以手改、可以 grep、可以不依赖工具直接备份**。一个个人词汇 App 的牌组规模，低几千条，够用。
+
+### 8.7 云备份只带文字，不带照片和 key
+
+`allowBackup` 是开着的，但两份规则文件（`backup_rules.xml` / `data_extraction_rules.xml`）都是**白名单**：
+云端只有 `deck.json` 与 `diary.json`。
+
+- 照片不上传：Android 的默认云备份**不是端到端加密**，而照片里可能是家、孩子、证件。
+- `datastore` 里的设置不上传：里面有用户自己填的云端 API Key。§8.5 说的「不出设备」要靠这条兜住——
+  备份是系统在你没点的情况下自己做的动作。
+- `<device-transfer>` 反过来带全部（含照片与 key）：面对面迁移是端到端加密的，而且发生在用户主动换机那一刻。
+
+代价写在这儿：**换机后旧条目只有文字没有原图**。这是刻意选择，不是遗漏。
+
+顺带一个坑：`<exclude domain="sharedpref" path="."/>` 配 `<include domain="file" .../>` 会让
+`lintVitalRelease` 直接报 `FullBackupContent` 错误——exclude 的路径必须落在某个 include 里。
+白名单写法根本不需要 exclude。
+
+---
+
+## 9. 视觉规范
+
+### 9.1 配色
+
+| 角色 | 色值 |
+|---|---|
+| Primary | `#FF8A65` 暖珊瑚橙 |
+| Secondary | `#4DB6AC` |
+| Tertiary | `#FFD54F` |
+| Background | `#FFF8F3` |
+
+### 9.2 圆角
+
+卡片 24dp / 按钮 20dp / 输入 16dp / Sheet 28dp。
+
+### 9.3 贴纸
+
+**4dp 白描边 + 6dp 阴影 + 旋转 ±3°**。白描边让它在任何背景上都读得出轮廓；±3° 的随机微旋转是「手贴上去」的来源，太大显得随意，太小没感觉。
+
+### 9.4 字体
+
+**Nunito**（标题）+ **Inter**（正文），可变字体。IPA 单独一套等宽样式（`IpaTextStyle`）——音标里的 `ʃ` `ɪ` `ː` 在比例字体下会连成一片。
+
+### 9.5 网格
+
+8dp 基准。
+
+---
+
+## 10. 依赖清单（全部钉死版本）
+
+| 用途 | 库 | 许可证 |
+|---|---|---|
+| 检测 | MediaPipe tasks-vision `efficientdet_lite0`（13.5MB） | Apache-2.0 |
+| 抠图 | MediaPipe `InteractiveSegmenter` / `magic_touch`（6.1MB） | Apache-2.0 |
+| 识别兜底 | ML Kit `ImageLabeler` | Apache-2.0 |
+| 相机 | CameraX 1.6.2 | Apache-2.0 |
+| 词典 | ECDICT 12000 条（`tools/build_lexicon.py` 生成） | MIT |
+| 存储 | kotlinx.serialization + DataStore | Apache-2.0 |
+| 字体 | Nunito / Inter | OFL（原文在 `third_party/fonts/`） |
+
+- **7 个图标全部自绘**，因此去掉了 `material-icons-extended`。
+- **不用 Hilt / Room**。
+- ABI 只编 arm64。
+- **不用 `@latest`**：供应链可控，不要自动更新机制自动换版本。
+- CC-CEDICT（CC BY-SA）已弃用。
+
+`LICENSE`（MIT）、`THIRD_PARTY_NOTICES.md`、`third_party/fonts/OFL-*.txt` 齐备。
+
+---
+
+## 11. 代码结构
+
+```
+app/src/main/java/com/ilyskyo/capturney/
+├── MainActivity.kt                   两页 + 取景页宿主（CaptureHost）
+├── CapturneyApplication.kt            建 AppContainer
+├── core/AppContainer.kt              手写 DI
+├── core/RetryGate.kt                 带冷却窗口的重试门：把「lazy 缓存一次失败」换成「等一会儿再试」
+├── data/
+│   ├── model/      Entry · EventCard · WordCard · Lexicon · Scene · FsrsState · RatingPalette
+│   ├── repository/ Deck · Diary · Lexicon · Settings
+│   └── store/      JsonDocument（原子写 + 损坏留证）
+│                  DiskOps            读/写/改名/复制的接缝：让「文件读得到但改名失败」这类组合可测
+├── srs/Fsrs.kt                       FSRS-6
+├── speech/Speaker.kt
+├── vision/
+│   ├── ShotClassifier · SceneClassifier · AmbienceScorer
+│   ├── VisionRepository              引擎调度 + 背压
+│   ├── MlKitOnDeviceEngine · CloudVisionEngine
+│   ├── MagicTouchSegmenter · SubjectSegmenter · MlKitSubjectSegmenter
+│   ├── CutoutGeometry.kt             前景框：原图像素尺度 → 贴纸位图尺度并夹紧（修「贴纸一直是空的且不报错」）
+│   ├── AlphaMatte.kt                 低分辨率 mask → 贴纸 alpha，双线性放大（die-cut 白描边不留台阶）
+│   ├── PhotoEntryPipeline.kt         「一张照片 → 一条条目」的唯一一条流水线：快门与相册导入共用
+│   └── camera/
+│       ├── CameraFocusMath.kt         纯几何（19 测试）
+│       ├── OverlayGeometry.kt         框 → 屏幕坐标（15 测试）
+│       ├── CameraFocusController.kt   逐帧下发裁切
+│       ├── DecodeSizing.kt            inSampleSize + 精确缩放的两步算术（纯函数；滚动时 OOM 的成因在这里）
+│       ├── PhotoDecoder.kt            解码即按 EXIF 转正
+│       ├── GalleryPhoto.kt            照片选择器选中的那张：整份拷进私有目录 + 带回时刻线索（零权限）
+│       ├── PhotoTiming.kt             「这张照片属于哪一天」的优先级：EXIF 拍摄时刻 → 修改时刻 → 现在（纯函数）
+│       └── YuvFrames.kt               YUV_420_888 → ARGB（11 测试）
+├── widget/DueWidgetProvider.kt
+└── ui/
+    ├── theme/     Color · Type · Shape · Theme
+    │              Motion               五档弹簧与全部动效规格，屏幕里不许出现第二个数字
+    │              Haptics              触觉分级：调用点说语义（Haptic），不说 API 常量
+    │              ContinuousCornerShape 超椭圆采样几何，纯 Kotlin 因此可在 JVM 测试里钉住
+    │              SoftShadow           多层柔和阴影（接触 / 半影 / 铺开三段），替代单层硬边 elevation
+    │              Indication           NoIndication：全局零波纹的空指示器，主题里一处生效
+    │              Pressable            pressable / pressFeedback：按压反馈的唯一入口
+    ├── icons/     CapturneyIcons（11 个手绘）
+    ├── common/    ByteLruCache         按字节上限的位图 LRU；淘汰只丢引用，绝不 recycle()
+    ├── components/ Common · PillSwitch（胶囊分段切换：选中背景是一块在段间滑动的胶囊）
+    │              OptionChip（选择胶囊：复用 M3 FilterChip 的语义，只把按压手感接上 pressFeedback）
+    ├── nav/       HomeTabBar · HomeViewModel · CapturneyApp · Page（单 Activity 的页面栈）
+    ├── lookback/  时间轴 · 条目详情（词长回原图 + 补一句）
+    ├── search/    搜索 / 添加（SearchScreen · SearchViewModel）
+    ├── remember/  复习（RememberScreen · IntervalFormat）
+    └── capture/   CaptureScreen · CaptureCamera · CaptureViewModel · ViewfinderOverlay
+```
+
+**四条架构约束**：
+
+1. **纯逻辑不 import `android.graphics`。** `unitTests.isReturnDefaultValues = true` 会让 `android.graphics` 返回 0/空值，而 `RectF.equals` 不比内容——曾经因此 13/15 个测试失败，而且报错完全指不到真正的原因。`CameraFocusMath` 和 `OverlayGeometry` 因此各自定义 `NormBox` / `SensorCrop`。
+2. **依赖方向 model ← vision。** `OverlayLayer` 放在 `data.model` 而不是视觉包里，因为它是**要持久化进日记文件**的语义。
+3. **位图缓存淘汰绝不 `recycle()`。** 缓存里放的是 Compose **正在绘制**的位图：组合线程可能刚把它取出来交给 `Image` / `DrawBitmap`。此时 recycle 会让另一根线程在 native 层踩到已释放的像素，表现是随机 SIGSEGV 或「Canvas: trying to use a recycled bitmap」——比 OOM 难查一个量级。ARGB_8888 的像素在 native 堆上、由 GC 连着 `Bitmap` 的 finalizer 管理，丢掉引用就回收，这一层不需要也不允许任何显式释放。`ByteLruCache` 全类找不到一个 `recycle` 就是这条约束的可检查形式。
+
+   这条规则的边界要写清楚，因为它**不是**「本仓不许 recycle」——`recycle()` 全仓有五处，
+   每一处都合法，且都必须合法。**判据只有一个：这张位图从来没有交给过组合线程。**
+   其中四处是「存在两份」的情形（解码时 `raw` 与转正后的 `transformed`、抠图的中间图 `rgba`、
+   缩放出的工作副本 `work`、`small`），所以它们写成 `if (a !== b) b.recycle()`——
+   身份比较挡住的是「顺手把别人还在用的那张也放了」。第五处是取景器每两秒一次的检测副本
+   （`Bitmap.createBitmap(pixels, …)` 现造、只交给 `detector.detect()`，从未进过 Compose 状态），
+   它没有第二份可比，所以直接 recycle 是对的。
+   要改这五处中的任何一处，先确认它能过上面那个判据；把这套写法复制到 `ByteLruCache`
+   的淘汰路径上，得到的就是那条被随机 SIGSEGV 追着的 bug。
+4. **按压反馈只有 `pressable` / `pressFeedback` 一个入口，波纹全局为 `NoIndication`。** 波纹的问题不是难看而是**说谎**：匀速扩散的一圈在物理世界里不存在，按下去的东西是缩下去的。所以波纹在主题里一次性换成空实现（不是每个调用点传 `indication = null`——Material 组件内部默认读 `LocalIndication`，逐个传挡不住下一个新写的组件）。缩放 + 透明度 + 触觉全部出自 `Pressable`，力度档位是两头挤出来的：小于 0.98 大面积元素读不出来，大于 0.94 像被捏扁。键盘焦点框走的是 `LocalFocusIndicator`，与这是两条独立通道，关掉波纹不影响焦点可见性。
+
+
+---
+
+## 12. 已完成 / 待做
+
+### ✅ 已完成
+
+- `assembleDebug` / `assembleRelease` + **86 个单测全通过**
+- FSRS-6、`ShotClassifier`、`AmbienceScorer`、全部数据模型、JSON 存储、设置
+- 视觉引擎全套：检测 / 抠图 / 标签 / 场景分类 / 云端（可选）
+- 主题、7 个图标、两页 UI、取景器覆盖层、`CameraFocusController`
+- **相机流水线端到端跑通**：`MainActivity.CaptureHost` 把 `PreviewView` 灌进 `CaptureScreen`，
+  `CaptureViewModel` 管分析帧、选词片、抠图与落库（取景页每次进入都是一台干净的相机，所以它的
+  VM 不挂导航 key）
+- **搜索 / 添加页**：一个输入框同时命中牌组、词典与日记，词典命中可一键收录。
+  `EntrySource.MANUAL` 从此有了可达路径——取景页那句「你可以直接把它写下来」现在能兑现了
+- **四语 UI 资源齐了**：`values`（中，默认）+ `values-en` / `values-ja` / `values-ko`，74 条一一对应。
+  时段问候、日期标签、氛围标记都改走资源——日期只把「月份短名」交给 CLDR，语序由每种语言自己的字符串决定
+- **「标记已掌握」＋撤销入口**（见 §6.2），数据层与队列层都按它过滤
+- **时间轴按天分组**（今天 / 昨天 / 日期）
+- **条目详情页**：`EntryDetailScreen` 把 `EntryObject` 的四角坐标经 `imageBoxFromSensorNorm` +
+  EXIF 转正映射回显示图，词片重新长在物体上方；页面下方的「补一句当时发生了什么」是
+  **事件卡唯一的诞生地**（此前 `DiaryRepository.addEvent` 只被 Preview 调过）
+- **照片解码统一到一个 `PhotoDecoder`**：`BitmapFactory` 不读 EXIF，CameraX 竖持写出的 JPEG
+  像素网格是横的，所以时间轴此前会把照片显示成躺倒——而且不报任何错
+- **桌面小组件**：读数走 `AppContainer.dueCount()`，点它直达「记住」页（冷启动读 intent、
+  热启动走 `onNewIntent`，`launchMode` 已是 singleTask），评级与归档之后主动 `sendBroadcast` 刷新——
+  系统自己的 `updatePeriodMillis` 下限是 30 分钟，对一个「还剩几个」的读数没有意义
+- 词典 12000 条、两个模型文件、`scenes.json` / `ambience.json`
+- `LICENSE` + `THIRD_PARTY_NOTICES.md` + `README.md` + `docs/BUILD.md` + GitHub Actions CI
+- **`schemaVersion` 只做新旧互斥，不做多代迁移**：磁盘上的版本比这个构建大 → 只读不写
+  （见 `JsonDocument.readFromDisk`）；相等或更小 → 正常读写。`DeckDocument` 与 `DiaryDocument` 的
+  `CURRENT_SCHEMA` 都还是 1，没有迁移表，因为只有一代。真出现第二代时该补的是一份迁移方案加一次备份，
+  而不是让旧构建照着不认识的样子改回去。
+- **`summary` 不再自动生成**：一句话内容只有用户自己写这一条路径（详情页的「补一句当时发生了什么」）。
+  §8.3 已经决定软件不带在线 AI。`summarySource` 字段仍然留着——它是既有数据的来源标记，
+  也是 §8.1「用户写的东西被 AI 改过必须明确告知」的落点：详情页只在 `summarySource == CLOUD` 时挂来源标记。
+- **设置页剩下的旋钮都有读它的人**（四个空转的已删）：
+  - 保持率 → `AppContainer` 把 `AppSettings.requestRetention` 灌进 `Fsrs.setRequestRetention`，
+    只调目标保持率、不碰 21 维权重向量；设置页与排期器共用 `MIN/MAX_REQUEST_RETENTION` 同一对常量。
+  - 评级色系 → `RatingPalette` 落 DataStore 的是**名字**，`ui.theme.RatingHues` 按名字取色相，
+    `MainActivity` 订阅 `container.ratingPalette` 换整套按钮配色。
+  - 隐私 → 这一节**没有开关**，只有两行写死的事实。上传给云端视觉模型的图是
+    `CloudVisionEngine.encodeImage` 里**重新编码**的位图，`Bitmap.compress` 出来的字节天然不含 EXIF，
+    所以「照片不带着自己的坐标出门」是**结构性保证**，不是开关控制的；照片也不进云备份
+    （`res/xml/data_extraction_rules.xml` 的 `<cloud-backup>` 只白名单 `deck.json` / `diary.json`，
+    `device-transfer` 才整本带走）。原来的 `redactBeforeUpload` 开关连同那句
+    「关掉之后，原文件会原样发送」一起删掉了：没有任何代码读它，而那句文案是对代码的承诺，
+    代码做不到——一个拨了什么都不发生的开关比没有这个开关更糟，因为它把「照片不出门」
+    这件真事说成了一件可以被用户关掉的事。
+
+
+### 🔧 进行中
+
+**剩下的只有一件事：系统的真机验证。** 类型检查与单测能证明几何和调度是对的，
+证明不了「画面里的词片确实压在杯子上」。清单在 `docs/BUILD.md` 的「发布前收口」一节，
+13 条，每条都写清了**看什么**而不是「正常即可」——包括相册导入那张表（记在它拍下的那天、
+卡片有贴纸那个角、连导几张 12MP 不 OOM、云相册未同步项要开口）、以及系统「移除动画」
+该停哪几样与**不该**停哪几样。
+
+这一节原来只列三条（抠图边缘 / 旋转 / 国产 ROM 首帧黑屏），那是三个月前的规模；
+继续在这里维护第二份清单的结果一定是两份不同步，所以指向 BUILD.md。
+
+已修掉的三个坐标真 bug（都有回归测试）：
+
+- `OverlayGeometry` **漏了传感器旋转**：手机竖持时预览转 90°，不换算宽高比就比，映射在最常见的场景下是错的。
+  之前测试用 `rotationDegrees = 0` 写，这条路径一次都没被覆盖。
+- `OverlayGeometry` 的 **`FILL_CENTER` 语义搞反**：它是**居中裁切**，永不留黑边，两个分支的偏移都是负的。
+- `CameraFocusMath.imageBoxFromSensorNorm` 的 **180° 分支不是 `orientedBox` 的逆**：180° 安装的传感器上，
+  抠图会取到错的那块区域。现场表现是「贴纸内容对不上词」，而不是崩溃，所以极难发现。
+
+### ⬜ 待做
+
+| 项 | 备注 |
+|---|---|
+| 真机验证 | 见上面「进行中」，这是发布前唯一的硬门槛。详情页的词片位置是坐标链路的终点，也是最需要先看一眼的一段 |
+| 四语词典 | 只有 `lexicon/en.json`。中/日/韩的词条需要从其他来源补，`LexiconEntry.words` 的结构已经支持多语言 |
+| release 签名 | 签名四项写在 `local.properties`，缺省产物不签名（见 `docs/BUILD.md`）；要发版需要一个长期 keystore |
+| 分享进来的**音频/视频** | `SEND` 的 image/* 与 text/plain 两条已经接进导入流水线与搜索页；其余 MIME 类型现在会被挡在 manifest 之外，不是漏实现 |
+| Baseline Profile | **只能由设备生成，本机生成不了**：ART 的 profile 格式要跑 macrobenchmark 采集，而这台机器没有设备、arm64-only 的 APK 也装不进 x86_64 模拟器。手写一份 `baseline-prof.txt` 不是不能编译，是**没有测量支撑的猜测**——把猜来的方法列表打进产物，换来的体积代价与启动收益谁都没看过。所以这一条留在待做，并且需要的是「接一台设备」而不是「再写代码」。要补的模块是 `:baselineprofile`（macrobenchmark + `androidx.profileinstaller`），钉住的路径是复习页的冷启动 |
+
+### ✅ 已决定：不做「触觉强度」滑块
+
+无障碍那一节原本写着「Haptics 强度设置」。做完之后**决定不做**，改成了另一件事：先问系统的
+「触摸时振动」（`ui/theme/Haptics.kt`，清单第 7 条）。
+
+理由和删掉 `redactBeforeUpload` 是同一条：**一个在某些路径上不生效的开关比没有这个开关更坏**。
+本 App 的触觉分三族降级——厂商预置效果（`EFFECT_TICK` / `EFFECT_HEAVY_CLICK` /
+`EFFECT_DOUBLE_CLICK`）、可组合原语（`startComposition().addPrimitive(id, scale)`）、
+以及 `createOneShot(ms, amplitude)`。只有后两族接受强度缩放，**预置效果不能缩放**：厂商可以改波形
+但不能改常量，也没有查询接口。而预置恰恰是 API 29/30 那批机器上的主路径，也就是强度滑块
+会按下的那批机器上最不生效的一条。
+
+要让滑块在所有设备上真的有效，就得在非默认档时放弃厂商调过的波形、全部自己合成——那是用
+「每台机器的手感都变陌生」换「设置里多一个能动的控件」。前者是用户能感觉到的，后者只是界面
+清单上多一行。真要说「轻一点 / 重一点」，系统那一档（设置 → 声音 → 触摸时振动强度）已经给了，
+而且它改的是全设备的统一行为，比 App 自己那一档更对。
+
+### ✅ 已决定：模型文件直接提交
+
+`efficientdet_lite0.tflite` 13.5 MB + `magic_touch.tflite` 6.1 MB，**跟着仓库走**（原方案 A/B/C 里选 C）。
+
+- 单文件远低于 GitHub 100 MB 上限；20 MB 一次性代价，换来 clone 后**离线可构建**，CI 不需要下载步骤，
+  也不依赖第三方模型的 URL 一直有效。
+- LFS 会把免费额度（1 GB 存储 / 10 GB 月流量）花在两个几乎不变的二进制上，clone 次数一多就先撞流量。
+- 已经提交并推送过了，现在改 LFS 等于改写历史，代价大于收益。
+- 以后如果加第三个模型文件、总量到 50 MB 以上，再考虑 LFS 或 release asset。
+
+### R8 之后的实测体积
+
+`assembleRelease`（arm64 单 ABI，`lintVitalRelease` 一起过）**49.55 MB**（十进制；47.25 MiB）。
+
+| 内容 | 体积 | 占比 |
+|---|---|---|
+| `lib/arm64-v8a`（MediaPipe + ML Kit 原生库） | 22.06 MB | 44.6% |
+| `assets/models`（两个 tflite，不压缩） | 20.06 MB | 40.6% |
+| `classes.dex` | 3.11 MB | 6.3% |
+| `assets/mlkit_label_default_model` | 3.04 MB | 6.1% |
+| 资源 + arsc + manifest | 0.71 MB | 1.4% |
+| 其余 assets（词典 + scenes + ambience） | 0.43 MB | 0.9% |
+
+代码加资源合计约 9%，剩下全是模型和原生库。想再瘦只能减模型，减 R8 配置没有意义。
+这张表**每个数字都是重新量的**，不是抄上一版：`python -c` 走一遍 `zipfile` 把
+`compress_size` 按前缀分桶就行（一行命令，不用 apkanalyzer）。上一版写着 49.1 MB /
+dex 2.7 MB，那是日历筛选与相册导入之前的事——体积会随功能动，抄旧数字比不写更难发现。
+debug 包 77.5 MB 的差值主要来自未压缩的 dex 与 debug 资源。

@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  Copyright (c) 2026 ilyskyo
+  SPDX-License-Identifier: MIT
+-->
+<resources>
+    <string name="app_name">Capturney</string>
+    <string name="widget_due_label">今日の復習</string>
+    <string name="widget_count_placeholder">…</string>
+    <string name="widget_description">今日復習する語の数を表示します。タップすると復習へ直接移動します。</string>
+
+    <string name="tab_capture">撮影</string>
+    <string name="home_search">検索と絞り込み</string>
+
+    <string name="home_tab_lookback">記録</string>
+    <string name="home_tab_remember">記憶</string>
+
+    <string name="greeting_morning">おはよう</string>
+    <string name="greeting_noon">こんにちは</string>
+    <string name="greeting_afternoon">こんにちは</string>
+    <string name="greeting_evening">こんばんは</string>
+    <string name="greeting_late_night">夜ふかし中</string>
+
+    <string name="date_in_year">%1$s%2$d日</string>
+    <string name="date_with_year">%3$d年%1$s%2$d日</string>
+
+    <string name="mood_quiet">静か</string>
+    <string name="mood_warm">あたたかい</string>
+    <string name="mood_crowded">混雑</string>
+    <string name="mood_messy">ばらばら</string>
+    <string name="mood_bright">明るい</string>
+    <string name="mood_grey">くもり</string>
+    <string name="mood_busy">せわしない</string>
+    <string name="mood_ordinary">いつもの</string>
+
+    <string name="day_today">今日</string>
+    <string name="day_yesterday">昨日</string>
+    <plurals name="lookback_today_count">
+        <item quantity="other">今日は %1$d 枚</item>
+    </plurals>
+    <string name="lookback_empty_title">まだ何も記録していません</string>
+    <string name="lookback_empty_body">カメラを何に向けてもいい。言葉が浮かんだら、その一枚を保存します。</string>
+
+    <string name="study_both">単語と出来事</string>
+    <string name="study_words">単語</string>
+    <string name="study_events">出来事</string>
+
+    <string name="review_flip_hint">タップで意味・長押しで他の操作</string>
+    <string name="review_flip_hint_returned">タップで反転・長押しで他の操作</string>
+    <plurals name="review_skipped_same_face">
+        <item quantity="other">%1$d枚は表と裏が同じ語のためスキップしました</item>
+    </plurals>
+    <string name="review_event_prompt">あの日は何があった？</string>
+    <string name="review_done_title">今日はこれで終わり</string>
+    <plurals name="review_done_body">
+        <item quantity="other">%1$d 日連続。また明日。</item>
+    </plurals>
+    <string name="review_empty_title">期限が来た単語はありません</string>
+    <string name="review_empty_body">先に何枚か撮ろう。復習のタイミングが来たら呼びに戻ります。</string>
+
+    <string name="review_mark_mastered">習得済みにする</string>
+    <string name="review_unmaster">戻す</string>
+    <string name="review_archived_count">%1$d 枚を退避中</string>
+    <string name="review_archived_title">退避したカード</string>
+    <string name="review_archived_close">閉じる</string>
+
+    <string name="review_verify_source">AI が整理しました。撮った内容と見比べてください</string>
+
+    <string name="capture_settings">設定</string>
+    <string name="capture_retake">撮り直す</string>
+    <string name="capture_save">ステッカー保存</string>
+    <string name="detail_edit_save">保存</string>
+    <string name="capture_permission_needed">物体を認識するにはカメラの許可が必要です</string>
+    <string name="capture_grant">許可する</string>
+    <string name="capture_tap_subject">画面の主体をタップして切り抜きます</string>
+    <string name="capture_selected_hint">「%1$s」を選択中 · シャッターはステッカーを「記憶」へ</string>
+    <string name="capture_scene_hint">未選択 · シャッターは写真全体を「記録」へ</string>
+    <string name="capture_speak">発音</string>
+    <string name="capture_shot_object">単一物体</string>
+    <string name="capture_shot_scene">風景</string>
+
+    <!-- 相册导入：撮影と同じ手順なので、出るのは「今回何が欠けた」の一言だけ -->
+    <string name="capture_import">アルバムから読み込む</string>
+    <string name="capture_importing">この写真を読み込んでいます · 認識と切り抜きは撮影と同じ手順です</string>
+    <string name="import_unreadable">この写真は読み込めませんでした。記録には保存されていません</string>
+    <string name="import_no_detection">今この端末では認識ができないため、写真そのままを記録に保存しました。言葉は付きません</string>
+    <string name="import_no_objects">この写真からは何も見つかりませんでした。写真全体を記録に保存しました</string>
+
+    <string name="nomatch_title">この単語はまだわかりません</string>
+    <string name="nomatch_body">モデルが見たのは上のラベルだけ。言葉とその意味を書き込めば、自分のワード帳に入り、そのまま復習リストにも加わります。</string>
+    <string name="nomatch_meaning_label">意味（母語）</string>
+    <string name="manual_added_stored">「%1$s」を加えました。自分のワード帳にも保存しました</string>
+    <string name="nomatch_labels_seen">モデルが見た言葉</string>
+    <string name="detail_close">閉じる</string>
+    <string name="detail_untitled">名前のないひととき</string>
+    <string name="detail_photo_missing">この写真は端末にありません</string>
+    <string name="detail_declined">そのとき見えたもの</string>
+    <string name="detail_event_hint">あの日の一言を付け足す</string>
+    <string name="detail_event_save">書き留める</string>
+    <plurals name="detail_event_count">
+        <item quantity="other">この項目 %1$d 行を記録済み</item>
+    </plurals>
+    <string name="search_hint">単語・意味・あの日の言葉を探す</string>
+    <string name="search_collect">収録</string>
+    <string name="search_collected_badge">収録済み</string>
+    <string name="search_section_suggest">辞書にある・まだ未収録</string>
+    <string name="search_section_collected">カードにある</string>
+    <string name="search_section_recent">最近収録した</string>
+    <string name="search_section_diary">記録に出てきた</string>
+    <string name="search_empty_title">見つかりませんでした</string>
+    <string name="search_empty_body">別の言葉で試すか、一枚撮りましょう。言葉は画面から育ちます。</string>
+    <string name="capture_sticker_failed">今回はステッカーを作れませんでしたが、単語カードは保存されました</string>
+    <string name="capture_close">ファインダーを閉じる</string>
+    <!-- 设置页 -->
+    <string name="settings_title">設定</string>
+    <string name="settings_learn_language">学んでいる言語</string>
+    <string name="settings_native_language">母語</string>
+    <string name="settings_direction_section">復習の向き</string>
+    <string name="settings_direction_recognize">単語から意味</string>
+    <string name="settings_direction_recall">意味から単語</string>
+    <string name="settings_direction_recognize_hint">表に外国語、裏に母語の意味を出します。</string>
+    <string name="settings_direction_recall_hint">表に母語の意味、裏で外国語を思い出します。見分けるより難しい向きです。</string>
+    <string name="settings_vision_section">認識バックエンド</string>
+    <string name="settings_cloud_switch">自分のキーで雲端認識</string>
+    <string name="settings_cloud_model">モデル名</string>
+    <string name="settings_cloud_key">APIキー</string>
+    <string name="settings_cloud_state_ready">オン：この画像を上のサービスに送ります。</string>
+    <string name="settings_cloud_state_no_key">APIキーが未入力なので雲端認識は動きません。</string>
+    <string name="settings_cloud_key_clear">キーを消す</string>
+    <string name="settings_cloud_note">キーはこの端末の設定ファイルに平文で置きます。暗号化も転送もせず、クラウドバックアップにも入れません。オフにすれば即座に止まります。</string>
+    <!-- 时间轴多选 -->
+    <string name="selection_count">%1$d 件選択中</string>
+    <string name="selection_select_all">すべて選択</string>
+    <string name="selection_cancel">キャンセル</string>
+    <string name="selection_delete">削除</string>
+    <plurals name="selection_delete_title">
+        <item quantity="other">%1$d 件の記録を削除しますか？</item>
+    </plurals>
+    <string name="selection_delete_body">写真とステッカーは完全に削除されます。そこから作った単語カードは残ります——復習にかけた時間は消えません。</string>
+    <string name="detail_copy_text">この文字をコピー</string>
+    <string name="detail_delete">この記録を削除</string>
+    <string name="detail_delete_confirm_title">この記録を削除しますか？</string>
+    <string name="detail_delete_confirm_body">写真とステッカーは完全に削除されます。そこから作った単語カードは残ります。</string>
+    <string name="walk_empty">まだ戻れる過去はありません</string>
+    <!-- 设置：复习节奏与配色 -->
+    <string name="settings_review_section">復習のリズム</string>
+    <string name="settings_retention">目標保持率</string>
+    <string name="settings_retention_looser">間隔を長く</string>
+    <string name="settings_retention_tighter">こまめに復習</string>
+    <string name="settings_retention_hint">目標保持率を上げるほど各カードが早く戻ってきて、間隔は短くなります。0.90 が推奨値です。</string>
+    <string name="settings_rating_colors">評価の配色</string>
+    <string name="settings_rating_colors_hint">配色は色だけが変わります。4段階の順序とラベルはそのままなので、色が単手がかりにはなりません。</string>
+    <string name="settings_palette_warm">暖色</string>
+    <string name="settings_palette_cool">寒色</string>
+    <string name="settings_palette_muted">控えめ</string>
+    <!-- 设置：隐私 -->
+    <string name="settings_privacy_section">プライバシー</string>
+    <string name="settings_privacy_reencode">写真は再エンコードされた状態でしかクラウドの認識に渡りません：EXIFと撮影位置はその段階で失われるもので、スイッチではなくコードの仕組みで保証されています。</string>
+    <string name="settings_privacy_backup">写真はクラウドバックアップに含まれません（上がるのは単語カードと日記のテキストだけ）。エクスポートや共有の入口もありません。端末間の移行では日記ごと引き継がれます。</string>
+    <!-- 复习：四档评级与间隔读数 -->
+    <string name="review_again">忘れた</string>
+    <string name="review_hard">難しい</string>
+    <string name="review_good">よし</string>
+    <string name="review_easy">簡単</string>
+    <string name="review_progress_label">今日</string>
+    <string name="review_card_front_desc">「%1$s」——タップで意味、長押しでその他の操作</string>
+    <string name="review_card_back_desc">意味：%1$s。このカードを評価できます</string>
+    <string name="review_interval_now">今</string>
+    <string name="review_interval_year">1年</string>
+    <string name="review_done_time">かかった時間</string>
+    <string name="review_done_accuracy">一度で思い出せた</string>
+    <plurals name="review_interval_days">
+        <item quantity="other">%1$d日</item>
+    </plurals>
+    <plurals name="review_interval_weeks">
+        <item quantity="other">%1$d週</item>
+    </plurals>
+    <plurals name="review_interval_months">
+        <item quantity="other">%1$dか月</item>
+    </plurals>
+    <plurals name="review_interval_years">
+        <item quantity="other">%1$d年</item>
+    </plurals>
+    <!-- 设置：每日提醒 -->
+    <string name="settings_reminder_section">毎日のリマインド</string>
+    <string name="settings_reminder_switch">復習をリマインド</string>
+    <string name="settings_reminder_time">リマインド時刻</string>
+    <string name="settings_reminder_hint">指定の時刻付近に届きますが、十数分前後することがあります。正確な時刻のためにアラーム権限は要求しません。</string>
+    <string name="settings_reminder_blocked">このアプリの通知がオフなので、リマインドは表示されません。</string>
+    <!-- 通知 -->
+    <string name="notification_channel_reminder">復習のリマインド</string>
+    <string name="notification_channel_reminder_desc">1日1回、今日残っている復習の枚数をお知らせ</string>
+    <plurals name="notification_due_title">
+        <item quantity="other">今日、復習が%1$d枚残っています</item>
+    </plurals>
+    <string name="notification_due_body">Capturney を開いて、長期記憶に留めましょう</string>
+    <!-- 发音失败的可行动提示 -->
+    <string name="notice_tts_silent">音がでませんでした。この端末の音声エンジンはこの語を発声できません。</string>
+    <string name="notice_tts_unsupported">この端末の音声エンジンに%1$sの声はありません。%1$sに対応したエンジンを追加すると読めるようになります。</string>
+    <!-- 认不出来时手写 -->
+    <string name="manual_field_label">単語を書く</string>
+    <string name="manual_add">辞書に加える</string>
+    <string name="manual_added">「%1$s」を辞書に加えました</string>
+    <string name="manual_not_found">「%1$s」は辞書にないため、復習リストに入れられません。設定 → 自分のワード帳 に意味を書けます</string>
+    <!-- 相机权限被永久拒绝 -->
+    <string name="capture_open_settings">設定で許可する</string>
+    <string name="capture_permission_permanently_denied">システムが許可ダイアログを表示しなくなりました。システム設定でカメラを許可してから戻ってください。</string>
+    <string name="lookback_photo_desc">%1$sに撮影した写真</string>
+    <!-- 设置：语音与数据 -->
+    <string name="settings_voice_section">発音</string>
+    <string name="settings_voice_engines">この端末の音声エンジン：%1$s</string>
+    <string name="settings_voice_engines_none">この端末に音声エンジンがないため、スピーカーを押しても何も鳴りません。</string>
+    <string name="settings_voice_missing">まだ読めない：%1$s</string>
+    <string name="settings_voice_hint">声はシステムエンジンのもので、このアプリ同梱ではありません。対応エンジン（例：Google Text-to-Speech ＋ 言語パック）を入れれば、ここで再チェックできます。</string>
+    <string name="settings_voice_recheck">再チェック</string>
+    <string name="settings_data_section">データ</string>
+    <string name="settings_import">単語カードを取り込む（deck.json）</string>
+    <string name="settings_import_hint">カードと復習進度だけを取り込みます。写真はずっと deck.json の外（ファイル名だけ）なので、ステッカー付きのカードは画像なしで届くことがあります。</string>
+    <string name="settings_import_done">%1$d件追加、%2$d件更新</string>
+    <string name="settings_import_bad">このファイルは読めませんでした。大きすぎるか（上限 8 MB）、このアプリが書き出した deck.json ではありません。</string>
+    <!-- 详情页：编辑这一条 -->
+    <string name="detail_edit">タイトルと気持ちを編集</string>
+    <string name="detail_edit_title">この1件を編集</string>
+    <string name="detail_edit_field_title">タイトル</string>
+    <string name="detail_edit_field_summary">その日なにがあったか</string>
+    <string name="detail_edit_field_mood">そのときの気持ち（もう一度タップで解除）</string>
+    <!-- 日历筛选 -->
+    <string name="calendar_title">日を選ぶ</string>
+    <string name="calendar_clear">すべて表示</string>
+    <string name="notice_filter_cleared">日付の絞り込みを外しました。この記録は %1$s のものです</string>
+    <string name="calendar_prev">前月</string>
+    <string name="calendar_next">翌月</string>
+    <string name="calendar_filtered">%1$s だけを表示</string>
+    <string name="calendar_empty_filtered">%1$s の記録はもうありません</string>
+
+    <string name="audio_row_title">そのときの声</string>
+    <string name="audio_record">ひとこと録る</string>
+    <string name="audio_recording_label">録信中 %1$s</string>
+    <string name="audio_stop">やめる</string>
+    <string name="audio_discard">すてる</string>
+    <string name="audio_take_sealing">ファイルをまとめています…</string>
+    <string name="audio_staged_label">%1$s 録れましたが、まだ保存していません</string>
+    <string name="audio_commit">保存する</string>
+    <string name="audio_re_record">録り直す</string>
+    <string name="audio_delete">音声を削除</string>
+    <string name="audio_file_missing">この音声はこの端末にありません</string>
+    <string name="audio_play_desc">再生、%1$s</string>
+    <string name="audio_pause_desc">一時停止</string>
+    <string name="audio_seek_desc">再生位置、聞きたいところまでドラッグ</string>
+    <string name="audio_permission_rationale">マイクは、このひとことを録るためだけに使います</string>
+    <string name="audio_permission_permanently_denied">マイクの権限が永久に拒否されています。設定で許可しないと録れません</string>
+    <string name="audio_open_settings">設定を開く</string>
+    <string name="audio_delete_confirm_title">この音声を削除しますか？</string>
+    <string name="audio_delete_confirm_body">消えるのは声だけで、写真と単語は残ります。戻せません。</string>
+    <string name="audio_replace_confirm_title">以前の音声の上書きになります</string>
+    <string name="audio_replace_confirm_body">新しい音声は同じ場所に保存され、古いほうは先に削除されます。</string>
+    <string name="notice_audio_limit">90 秒に達したので、自分で止めました</string>
+    <string name="notice_audio_handed_off">録れた分はその場に置いておきました。保存するか棄てるか決めてください</string>
+    <string name="notice_audio_too_short">短すぎて、何も録れていません</string>
+    <string name="notice_audio_discarded">その音声は棄てました</string>
+    <string name="notice_audio_superseded">別の記録で保存していなかった音声を棄てました</string>
+    <string name="notice_mic_busy">通話か別のアプリがマイクを使っています。空いてからもう一度</string>
+    <string name="notice_audio_failed">録れなかったので、書きかけのファイルは消しました</string>
+    <string name="notice_audio_take_pending">保存するか決まっていない音声があります。先に保存か棄てを選んでください</string>
+    <string name="notice_audio_playback_failed">この音声は再生できません。ファイルが壊れているようです</string>
+
+    <string name="settings_my_words_section">自分のワード帳</string>
+    <string name="settings_my_words_empty">まだ何も足していません。App がものを認識できないときは、ここに変更を書けば、同じ言葉は次回から復習队列に入れます。</string>
+    <string name="settings_word_label">単語（習っている言語）</string>
+    <string name="settings_meaning_label">意味（母語）</string>
+    <string name="settings_word_add">加える</string>
+    <string name="settings_word_remove_desc">この項目を削除</string>
+    <plurals name="lookback_load_older">
+        <item quantity="other">もっと前の記録が %1$d 件 · 読み込む</item>
+    </plurals>
+    <plurals name="settings_lexicon_warnings">
+        <item quantity="other">辞書ファイル %1$d 個を読み取れませんでした：%2$s。手で編集したならカンマと引用符を確認してください。読み取れないファイルは丸ごとスキップされます</item>
+    </plurals>
+    <string name="search_blank_title">言葉を打って調べます</string>
+    <string name="search_blank_body">マイカード・辞書・この日記をまとめて探します。辞書のどの項目もワンタップでマイカードに加えられ、加えると復習リストに入ります。</string>
+    <string name="search_more_suggest">辞書にもっと項目が合っています · もっと具体的な言葉を打ってください</string>
+    <string name="search_more_diary">日記に関連する記録がほかにも %1$d 件あります</string>
+    <string name="notice_word_added">「%1$s」を辞書に加えました</string>
+    <string name="notice_word_removed">削除しました</string>
+    <string name="notice_word_failed">書き込めませんでした。辞書ファイルが読めない状態のようです</string>
+</resources>

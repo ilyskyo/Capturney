@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+  Copyright (c) 2026 ilyskyo
+  SPDX-License-Identifier: MIT
+-->
+<resources>
+    <string name="app_name">Capturney</string>
+    <string name="widget_due_label">오늘 복습</string>
+    <string name="widget_count_placeholder">…</string>
+    <string name="widget_description">오늘 복습할 단어의 개수를 보여줘요. 탭하면 복습 목록으로 바로 이동해요.</string>
+
+    <string name="tab_capture">촬영</string>
+    <string name="home_search">검색과 필터</string>
+
+    <string name="home_tab_lookback">기록</string>
+    <string name="home_tab_remember">기억</string>
+
+    <string name="greeting_morning">좋은 아침</string>
+    <string name="greeting_noon">좋은 낮</string>
+    <string name="greeting_afternoon">좋은 오후</string>
+    <string name="greeting_evening">좋은 저녁</string>
+    <string name="greeting_late_night">새벽이 깊어요</string>
+
+    <string name="date_in_year">%1$s %2$d일</string>
+    <string name="date_with_year">%3$d년 %1$s %2$d일</string>
+
+    <string name="mood_quiet">조용함</string>
+    <string name="mood_warm">따뜻함</string>
+    <string name="mood_crowded">북적임</string>
+    <string name="mood_messy">어수선함</string>
+    <string name="mood_bright">밝음</string>
+    <string name="mood_grey">흐림</string>
+    <string name="mood_busy">바쁨</string>
+    <string name="mood_ordinary">평범함</string>
+
+    <string name="day_today">오늘</string>
+    <string name="day_yesterday">어제</string>
+    <plurals name="lookback_today_count">
+        <item quantity="other">오늘 %1$d개의 순간</item>
+    </plurals>
+    <string name="lookback_empty_title">아직 기록이 없어요</string>
+    <string name="lookback_empty_body">카메라를 아무거나 향해 보세요. 단어가 떠오르면 그 장면을 저장합니다.</string>
+
+    <string name="study_both">단어와 사건</string>
+    <string name="study_words">단어</string>
+    <string name="study_events">사건</string>
+
+    <string name="review_flip_hint">탭하면 뜻 · 길게 누르면 추가 동작</string>
+    <string name="review_flip_hint_returned">탭하면 뒤집힘 · 길게 누르면 추가 동작</string>
+    <plurals name="review_skipped_same_face">
+        <item quantity="other">%1$d장은 앞면과 뒷면이 같은 단어라 건너뛰었습니다</item>
+    </plurals>
+    <string name="review_event_prompt">그날 무슨 일이 있었을까?</string>
+    <string name="review_done_title">오늘 몫은 여기까지</string>
+    <plurals name="review_done_body">
+        <item quantity="other">%1$d일 연속이에요. 내일 또 봐요.</item>
+    </plurals>
+    <string name="review_empty_title">지금 돌아올 단어는 없어요</string>
+    <string name="review_empty_body">먼저 몇 장 찍어 보세요. 복습 시점이 되면 다시 부를게요.</string>
+
+    <string name="review_mark_mastered">익혔다고 표시</string>
+    <string name="review_unmaster">표시 해제</string>
+    <string name="review_archived_count">%1$d장 숨김</string>
+    <string name="review_archived_title">숨긴 카드</string>
+    <string name="review_archived_close">닫기</string>
+
+    <string name="review_verify_source">AI가 정리했어요. 찍은 내용과 비교해 주세요</string>
+
+    <string name="capture_settings">설정</string>
+    <string name="capture_retake">다시 찍기</string>
+    <string name="capture_save">스티커 저장</string>
+    <string name="detail_edit_save">저장</string>
+    <string name="capture_permission_needed">물체를 인식하려면 카메라 권한이 필요해요</string>
+    <string name="capture_grant">권한 주기</string>
+    <string name="capture_tap_subject">화면의 물체를 탭해서 오려내요</string>
+    <string name="capture_selected_hint">「%1$s」 선택됨 · 셔터는 스티커를 「기억」에 저장해요</string>
+    <string name="capture_scene_hint">물체 미선택 · 셔터는 사진 전체를 「기록」에 저장해요</string>
+    <string name="capture_speak">발음 듣기</string>
+    <string name="capture_shot_object">단일 물체</string>
+    <string name="capture_shot_scene">풍경</string>
+
+    <!-- 앨범 가져오기: 촬영과 같은 순서를 거치므로 알림은 「이번에 무엇이 빠졌는지」만 말합니다 -->
+    <string name="capture_import">앨범에서 가져오기</string>
+    <string name="capture_importing">사진을 읽는 중 · 인식과 오려내기도 촬영과 같은 순서로 진행돼요</string>
+    <string name="import_unreadable">이 사진은 읽을 수 없어서 기록에 저장하지 않았어요</string>
+    <string name="import_no_detection">지금 이 기기는 물체를 인식할 수 없어서, 사진만 그대로 기록에 저장했어요. 단어는 붙지 않아요</string>
+    <string name="import_no_objects">이 사진에서는 아무것도 찾지 못했어요. 사진 전체를 기록에 저장했어요</string>
+
+    <string name="nomatch_title">이 단어는 아직 모르겠어요</string>
+    <string name="nomatch_body">모델이 본 것은 위의 표시들뿐이에요. 단어와 뜻을 적어 넣으면 내 단어장에 저장되고, 바로 복습 목록에도 들어가요.</string>
+    <string name="nomatch_meaning_label">뜻 (제 모국어)</string>
+    <string name="manual_added_stored">%1$s을(를) 넣었어요. 내 단어장에도 저장했어요</string>
+    <string name="nomatch_labels_seen">모델이 본 단어</string>
+    <string name="detail_close">닫기</string>
+    <string name="detail_untitled">이름 없는 순간</string>
+    <string name="detail_photo_missing">이 사진은 이 기기에 없어요</string>
+    <string name="detail_declined">그때 그것도 봤어요</string>
+    <string name="detail_event_hint">그날 있었던 일을 한 줄 더</string>
+    <string name="detail_event_save">적어 두기</string>
+    <plurals name="detail_event_count">
+        <item quantity="other">이 항목에 %1$d줄 적었어요</item>
+    </plurals>
+    <string name="search_hint">단어·뜻, 또는 그날의 키워드 검색</string>
+    <string name="search_collect">수집</string>
+    <string name="search_collected_badge">수집됨</string>
+    <string name="search_section_suggest">사전에 있지만 아직 모으지 않은</string>
+    <string name="search_section_collected">내 카드에서</string>
+    <string name="search_section_recent">최근 수집</string>
+    <string name="search_section_diary">일기에 나온 적 있는</string>
+    <string name="search_empty_title">일치하는 게 없어요</string>
+    <string name="search_empty_body">다른 단어로 해 보거나 한 장 찍어 보세요. 단어는 화면에서 자라요.</string>
+    <string name="capture_sticker_failed">이번엔 스티커를 오려내지 못했지만 단어 카드는 저장됐어요</string>
+    <string name="capture_close">뷰파인더 닫기</string>
+    <!-- 设置页 -->
+    <string name="settings_title">설정</string>
+    <string name="settings_learn_language">배우는 언어</string>
+    <string name="settings_native_language">내 언어</string>
+    <string name="settings_direction_section">복습 방향</string>
+    <string name="settings_direction_recognize">단어 → 뜻</string>
+    <string name="settings_direction_recall">뜻 → 단어</string>
+    <string name="settings_direction_recognize_hint">앞면에 외국어 단어를, 뒷면에 내 언어 뜻을 보여줘요.</string>
+    <string name="settings_direction_recall_hint">앞면에 뜻을, 뒷면에서 단어를 떠올려요. 알아보는 것보다 어려움.</string>
+    <string name="settings_vision_section">인식 백엔드</string>
+    <string name="settings_cloud_switch">내 키로 클라우드 인식</string>
+    <string name="settings_cloud_model">모델 이름</string>
+    <string name="settings_cloud_key">API 키</string>
+    <string name="settings_cloud_state_ready">켜짐: 이 프레임을 위에 적힌 서비스로 보내요.</string>
+    <string name="settings_cloud_state_no_key">API 키가 비어 있어 클라우드 인식은 켜지지 않아요.</string>
+    <string name="settings_cloud_key_clear">키 지우기</string>
+    <string name="settings_cloud_note">키는 이 기기의 설정 파일에 평문으로 저장돼요. 암호화하지 않고, 보내지 않으며, 클라우드 백업에서도 제외돼요. 끄면 즉시 멈춰요.</string>
+    <!-- 时间轴多选 -->
+    <string name="selection_count">%1$d개 선택됨</string>
+    <string name="selection_select_all">모두 선택</string>
+    <string name="selection_cancel">취소</string>
+    <string name="selection_delete">삭제</string>
+    <plurals name="selection_delete_title">
+        <item quantity="other">이 %1$d개를 삭제할까요?</item>
+    </plurals>
+    <string name="selection_delete_body">사진과 스티커는 완전히 사라져요. 거기서 만든 단어 카드는 남아요 — 이미 들인 복습 시간은 지워지지 않아요.</string>
+    <string name="detail_copy_text">이 글 복사</string>
+    <string name="detail_delete">이 기록 삭제</string>
+    <string name="detail_delete_confirm_title">이 기록을 삭제할까요?</string>
+    <string name="detail_delete_confirm_body">사진과 스티커가 완전히 사라져요. 거기서 만든 단어 카드는 남아요.</string>
+    <string name="walk_empty">아직 돌아갈 과거가 없어요</string>
+    <!-- 设置：复习节奏与配色 -->
+    <string name="settings_review_section">복습 리듬</string>
+    <string name="settings_retention">목표 유지율</string>
+    <string name="settings_retention_looser">간격 길게</string>
+    <string name="settings_retention_tighter">복습 자주</string>
+    <string name="settings_retention_hint">유지율을 올리면 각 카드가 더 빨리 돌아오고 간격이 짧아져요. 0.90이 권장 값이에요.</string>
+    <string name="settings_rating_colors">평가 색상</string>
+    <string name="settings_rating_colors_hint">색상은 색만 바뀝니다. 네 단계의 순서와 글자는 그대로라 색이 유일한 단서가 되진 않아요.</string>
+    <string name="settings_palette_warm">웜</string>
+    <string name="settings_palette_cool">쿨</string>
+    <string name="settings_palette_muted">차분</string>
+    <!-- 设置：隐私 -->
+    <string name="settings_privacy_section">개인정보</string>
+    <string name="settings_privacy_reencode">사진은 다시 인코딩된 형태로만 클라우드 인식에 전달돼요: EXIF와 촬영 위치는 그 과정에서 사라지고, 이건 스위치가 아니라 코드 구조로 보장돼요.</string>
+    <string name="settings_privacy_backup">사진은 클라우드 백업에 들어가지 않아요(올라가는 건 단어 카드와 일기 텍스트뿐이에요). 내보내기나 공유 입구도 없어요. 기기 간 이전에서는 일기 전체가 함께 넘어가요.</string>
+    <!-- 复习：四档评级与间隔读数 -->
+    <string name="review_again">잊었어요</string>
+    <string name="review_hard">어려워요</string>
+    <string name="review_good">좋아요</string>
+    <string name="review_easy">쉬워요</string>
+    <string name="review_progress_label">오늘</string>
+    <string name="review_card_front_desc">“%1$s” — 탭하면 뜻, 길게 누르면 추가 동작</string>
+    <string name="review_card_back_desc">뜻: %1$s — 이제 이 카드를 평가할 수 있어요</string>
+    <string name="review_interval_now">지금</string>
+    <string name="review_interval_year">1년</string>
+    <string name="review_done_time">걸린 시간</string>
+    <string name="review_done_accuracy">한 번에 떠올림</string>
+    <plurals name="review_interval_days">
+        <item quantity="other">%1$d일</item>
+    </plurals>
+    <plurals name="review_interval_weeks">
+        <item quantity="other">%1$d주</item>
+    </plurals>
+    <plurals name="review_interval_months">
+        <item quantity="other">%1$d개월</item>
+    </plurals>
+    <plurals name="review_interval_years">
+        <item quantity="other">%1$d년</item>
+    </plurals>
+    <!-- 设置：每日提醒 -->
+    <string name="settings_reminder_section">매일 알림</string>
+    <string name="settings_reminder_switch">복습 알려주기</string>
+    <string name="settings_reminder_time">알림 시각</string>
+    <string name="settings_reminder_hint">지정한 시각 무렵에 도착하지만 십수 분 앞뒤로 틀어질 수 있어요. 정확한 시각을 위해 알람 권한은 요구하지 않아요.</string>
+    <string name="settings_reminder_blocked">이 앱의 알림이 꺼져 있어서 알림이 표시되지 않아요.</string>
+    <!-- 通知 -->
+    <string name="notification_channel_reminder">복습 알림</string>
+    <string name="notification_channel_reminder_desc">하루에 한 번, 오늘 남은 복습 개수를 알려 드려요</string>
+    <plurals name="notification_due_title">
+        <item quantity="other">오늘 복습할 카드 %1$d장</item>
+    </plurals>
+    <string name="notification_due_body">Capturney를 열고 장기 기억으로 옮겨 보세요</string>
+    <!-- 发音失败的可行动提示 -->
+    <string name="notice_tts_silent">소리가 나지 않았어요. 이 기기의 음성 엔진이 그 단어를 발음할 수 없어요.</string>
+    <string name="notice_tts_unsupported">이 기기의 음성 엔진에 %1$s 음성이 없어요. %1$s를 지원하는 엔진을 설치하면 들을 수 있어요.</string>
+    <!-- 认不出来时手写 -->
+    <string name="manual_field_label">단어 적기</string>
+    <string name="manual_add">사전에 추가</string>
+    <string name="manual_added">“%1$s”를 사전에 넣었어요</string>
+    <string name="manual_not_found">“%1$s”는 사전에 없어서 복습 목록에 넣을 수 없어요. 설정의 내 단어에 뜻을 적어 두세요</string>
+    <!-- 相机权限被永久拒绝 -->
+    <string name="capture_open_settings">설정에서 허용</string>
+    <string name="capture_permission_permanently_denied">시스템이 권한 창을 더 이상 보여주지 않아요. 시스템 설정에서 카메라를 허용한 뒤 돌아와 주세요.</string>
+    <string name="lookback_photo_desc">%1$s에 촬영한 사진</string>
+    <!-- 设置：语音与数据 -->
+    <string name="settings_voice_section">발음</string>
+    <string name="settings_voice_engines">이 기기의 음성 엔진: %1$s</string>
+    <string name="settings_voice_engines_none">이 기기에는 음성 엔진이 없어서 스피커를 눌러도 소리가 나지 않아요.</string>
+    <string name="settings_voice_missing">아직 읽지 못함: %1$s</string>
+    <string name="settings_voice_hint">음성은 이 앱이 아니라 시스템 엔진이 제공해요. 해당 언어를 지원하는 엔진(예: Google 텍스트 음성 변환 + 언어 팩)을 설치한 뒤 다시 확인해 보세요.</string>
+    <string name="settings_voice_recheck">다시 확인</string>
+    <string name="settings_data_section">데이터</string>
+    <string name="settings_import">단어 카드 가져오기(deck.json)</string>
+    <string name="settings_import_hint">카드와 복습 진도만 합쳐요. 사진은 deck.json에 절대 담기지 않고 파일명만 있어, 스티커 카드는 이미지 없이 올 수 있어요.</string>
+    <string name="settings_import_done">%1$d개 추가, %2$d개 업데이트</string>
+    <string name="settings_import_bad">그 파일을 읽을 수 없어요. 너무 크거나(최대 8MB) 이 앱이 내보낸 deck.json이 아니에요.</string>
+    <!-- 详情页：编辑这一条 -->
+    <string name="detail_edit">제목과 기분 편집</string>
+    <string name="detail_edit_title">이 기록 편집</string>
+    <string name="detail_edit_field_title">제목</string>
+    <string name="detail_edit_field_summary">그날 무슨 일이 있었나요</string>
+    <string name="detail_edit_field_mood">그때의 기분 (한 번 더 누르면 해제)</string>
+    <!-- 日历筛选 -->
+    <string name="calendar_title">날짜 고르기</string>
+    <string name="calendar_clear">전체 보기</string>
+    <string name="notice_filter_cleared">날짜 필터를 해제했어요. 방금 저장한 것은 %1$s의 기록이에요</string>
+    <string name="calendar_prev">이전 달</string>
+    <string name="calendar_next">다음 달</string>
+    <string name="calendar_filtered">%1$s만 보여드려요</string>
+    <string name="calendar_empty_filtered">%1$s의 기록이 이미 없어요</string>
+
+    <string name="audio_row_title">그때의 목소리</string>
+    <string name="audio_record">한 마디 녹음</string>
+    <string name="audio_recording_label">녹음 중 %1$s</string>
+    <string name="audio_stop">멈춤</string>
+    <string name="audio_discard">버리기</string>
+    <string name="audio_take_sealing">파일 마무리 중…</string>
+    <string name="audio_staged_label">%1$s 녹음됐지만 아직 저장하지 않음</string>
+    <string name="audio_commit">저장</string>
+    <string name="audio_re_record">다시 녹음</string>
+    <string name="audio_delete">녹음 삭제</string>
+    <string name="audio_file_missing">이 소리는 이 기기에 없어요</string>
+    <string name="audio_play_desc">재생, %1$s</string>
+    <string name="audio_pause_desc">일시정지</string>
+    <string name="audio_seek_desc">재생 위치, 듣고 싶은 곳으로 끌어당기기</string>
+    <string name="audio_permission_rationale">마이크는 이 한 마디를 녹음하는 데만 쓰여요</string>
+    <string name="audio_permission_permanently_denied">마이크 권한이 영구히 거부됐어요. 설정에서 허용해야 녹음할 수 있어요</string>
+    <string name="audio_open_settings">설정으로 이동</string>
+    <string name="audio_delete_confirm_title">이 소리를 삭제할까요?</string>
+    <string name="audio_delete_confirm_body">소리만 없어지고 사진과 단어는 그대로 남아요. 되돌릴 수 없어요.</string>
+    <string name="audio_replace_confirm_title">이전의 녹음을 덮어써요</string>
+    <string name="audio_replace_confirm_body">새 녹음은 같은 자리에 저장되고, 이전 녹음은 먼저 지워져요.</string>
+    <string name="notice_audio_limit">90초에 도달해서 스스로 멈췄어요</string>
+    <string name="notice_audio_handed_off">녹은 부분은 그 자리에 그대로 뒴어요. 저장할지 버릴지 정해 주세요</string>
+    <string name="notice_audio_too_short">너무 짧아서 담은 게 없어요</string>
+    <string name="notice_audio_discarded">그 소리를 버렸어요</string>
+    <string name="notice_audio_superseded">다른 기록에서 저장하지 않았던 소리를 버렸어요</string>
+    <string name="notice_mic_busy">통화나 다른 앱이 마이크를 쓰고 있어요. 끝나고 다시 시도해 주세요</string>
+    <string name="notice_audio_failed">녹음되지 않았어요. 중간에 멈춘 파일은 지웠습니다</string>
+    <string name="notice_audio_take_pending">아직 정하지 않은 소리가 있어요. 먼저 저장하거나 버려 주세요</string>
+    <string name="notice_audio_playback_failed">이 소리는 재생할 수 없어요. 파일이 상한 것 같아요</string>
+
+    <string name="settings_my_words_section">내 단어</string>
+    <string name="settings_my_words_empty">아직 추가한 단어가 없어요. 앱이 어떤 사물을 못 알아볼 때 여기에 뜻을 적어 두면, 같은 말은 다음부터 복습 목록에 들어가요.</string>
+    <string name="settings_word_label">단어 (배우는 언어)</string>
+    <string name="settings_meaning_label">뜻 (제 모국어)</string>
+    <string name="settings_word_add">추가하기</string>
+    <string name="settings_word_remove_desc">이 항목 삭제</string>
+    <plurals name="lookback_load_older">
+        <item quantity="other">이전의 기록 %1$d개 · 불러오기</item>
+    </plurals>
+    <plurals name="settings_lexicon_warnings">
+        <item quantity="other">사전 파일 %1$d개를 읽지 못했어요: %2$s. 직접 편집했다면 쉼표와 따옴표를 확인해 주세요. 읽지 못한 파일은 통째로 건너뛰어요</item>
+    </plurals>
+    <string name="search_blank_title">찾을 단어를 적어 보세요</string>
+    <string name="search_blank_body">내 단어장·사전·이 일기를 함께 찾아요. 사전의 어떤 항목이든 탭 하나로 단어장에 넣을 수 있고, 넣으면 복습 목록에 들어가요.</string>
+    <string name="search_more_suggest">사전에서 더 많이 닿아요 · 더 구체적인 단어를 적어 보세요</string>
+    <string name="search_more_diary">이 일기에 관련된 기록이 %1$d개 더 있어요</string>
+    <string name="notice_word_added">%1$s을(를) 사전에 넣었어요</string>
+    <string name="notice_word_removed">삭제했어요</string>
+    <string name="notice_word_failed">저장되지 않았어요. 사전 파일을 읽을 수 없는 상태인 것 같아요</string>
+</resources>

@@ -1,0 +1,270 @@
+// Copyright (c) 2026 ilyskyo
+// SPDX-License-Identifier: MIT
+
+package com.ilyskyo.capturney.ui.search
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.ilyskyo.capturney.R
+import com.ilyskyo.capturney.data.model.WordCard
+import com.ilyskyo.capturney.ui.components.EmptyState
+import com.ilyskyo.capturney.ui.components.InsetField
+import com.ilyskyo.capturney.ui.icons.CapturneyIcons
+import com.ilyskyo.capturney.ui.theme.Scale
+import com.ilyskyo.capturney.ui.theme.Space
+import com.ilyskyo.capturney.ui.theme.pressable
+
+/**
+ * 搜索 / 添加页。三区共用一个输入框：牌组、词典、日记。
+ *
+ * 结果区分层不是装饰——「我已经收进来的」「词典里还没有的」「某天见过它的」是三件不同的事，
+ * 混在一个列表里用户就得不到「还差哪些」这个信息。
+ */
+@Composable
+fun SearchScreen(
+    state: SearchUiState,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+    onCollect: (String) -> Unit,
+    onSpeak: (String, String?) -> Unit,
+    onOpenEntry: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(color = MaterialTheme.colorScheme.background, modifier = modifier.fillMaxSize()) {
+        // 整页不透明，内容一律退到系统栏之内（背景仍铺满，避免状态栏下露出色块边界）。
+        Column(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Space.md, vertical = Space.sm),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(Space.xs),
+            ) {
+                IconButton(onClick = onClose) {
+                    Icon(
+                        imageVector = CapturneyIcons.Close,
+                        contentDescription = stringResource(R.string.detail_close),
+                        tint = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+                InsetField(
+                    value = state.query,
+                    onValueChange = onQueryChange,
+                    placeholder = stringResource(R.string.search_hint),
+                    leadingIcon = CapturneyIcons.Search,
+                )
+            }
+
+            val blank = state.query.isBlank()
+            if (blank && state.collected.isEmpty()) {
+                // 全新装机第一次点进来就是这一格：输入框下面整片空白，没有任何东西说明
+                // 「这一页能干什么」。空着不是中立的选择——用户只会以为自己点错了页面。
+                // 牌组里已经有东西时不显示，因为那时「最近」那一栏本身就是回答。
+                EmptyState(
+                    emoji = "\uD83D\uDCD6",
+                    title = stringResource(R.string.search_blank_title),
+                    body = stringResource(R.string.search_blank_body),
+                    modifier = Modifier.fillMaxSize(),
+                )
+                return@Column
+            }
+            if (!blank && state.collected.isEmpty() && state.suggestions.isEmpty() && state.diaryHits.isEmpty()) {
+                EmptyState(
+                    emoji = "\uD83D\uDD0D",
+                    title = stringResource(R.string.search_empty_title),
+                    body = stringResource(R.string.search_empty_body),
+                    modifier = Modifier.fillMaxSize(),
+                )
+                return@Column
+            }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = Space.lg, vertical = Space.sm),
+                verticalArrangement = Arrangement.spacedBy(Space.sm),
+            ) {
+                if (state.suggestions.isNotEmpty()) {
+                    item(key = "h-suggest") {
+                        SectionTitle(stringResource(R.string.search_section_suggest))
+                    }
+                    items(state.suggestions, key = { "s-" + it.entry.id }) { s ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = Space.xs),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(Space.sm),
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(s.headword, style = MaterialTheme.typography.titleSmall)
+                                s.gloss?.let {
+                                    Text(
+                                        text = it,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                            SpeakIcon { onSpeak(s.headword, s.entry.primaryLanguage) }
+                            TextButton(
+                                onClick = { onCollect(s.entry.id) },
+                                enabled = s.entry.id !in state.justAdded,
+                            ) {
+                                Text(
+                                    text = stringResource(
+                                        if (s.entry.id in state.justAdded) R.string.search_collected_badge
+                                        else R.string.search_collect,
+                                    ),
+                                    style = MaterialTheme.typography.labelLarge,
+                                )
+                            }
+                        }
+                    }
+                    if (state.suggestionOverflow) {
+                        // 只摆出前若干条而不说一句，用户读到的是「词典里就这些」——
+                        // 在一本教词的 App 里那是句假话。
+                        item(key = "more-suggest") {
+                            OverflowNote(stringResource(R.string.search_more_suggest))
+                        }
+                    }
+                }
+
+                if (state.collected.isNotEmpty()) {
+                    item(key = "h-collected") {
+                        SectionTitle(
+                            stringResource(
+                                if (blank) R.string.search_section_recent else R.string.search_section_collected,
+                            ),
+                        )
+                    }
+                    items(state.collected, key = { "c-" + it.id }) { card ->
+                        CollectedRow(card = card, onSpeak = { onSpeak(card.headword, card.language) })
+                    }
+                }
+
+                if (state.diaryHits.isNotEmpty()) {
+                    item(key = "h-diary") { SectionTitle(stringResource(R.string.search_section_diary)) }
+                    items(state.diaryHits, key = { "d-" + it.id }) { entry ->
+                        Surface(
+                            shape = MaterialTheme.shapes.medium,
+                            color = MaterialTheme.colorScheme.surface,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pressable(onClick = { onOpenEntry(entry.id) }, pressedScale = Scale.Large),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(Space.md),
+                                verticalArrangement = Arrangement.spacedBy(Space.xs),
+                            ) {
+                                Text(
+                                    text = entry.title?.takeIf { it.isNotBlank() }
+                                        ?: stringResource(R.string.detail_untitled),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                entry.summary?.let {
+                                    Text(
+                                        text = it,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    if (state.diaryOverflow > 0) {
+                        // 整本日记在内存里，所以这个数能如实报出来：不说，列表就 pretend 成
+                        // 「只有这 20 条与它有关」。
+                        item(key = "more-diary") {
+                            OverflowNote(stringResource(R.string.search_more_diary, state.diaryOverflow))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 列表末尾那句「还有多少没显示」。小字、弱色，不跟内容抢位置。 */
+@Composable
+private fun OverflowNote(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.padding(vertical = Space.xs),
+    )
+}
+
+@Composable
+private fun CollectedRow(card: WordCard, onSpeak: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Space.sm),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(card.headword, style = MaterialTheme.typography.titleSmall)
+            card.glosses.values.firstOrNull()?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        SpeakIcon(onClick = onSpeak)
+    }
+}
+
+@Composable
+private fun SpeakIcon(onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+        Icon(
+            imageVector = CapturneyIcons.Speaker,
+            contentDescription = stringResource(R.string.capture_speak),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun SectionTitle(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = Space.sm)
+            .padding(horizontal = Space.xs),
+    )
+}
