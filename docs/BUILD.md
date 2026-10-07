@@ -341,17 +341,23 @@ CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前
 - **复习页**：同一张卡可以反复翻回正面；翻过一次之后那行提示会改口；两面同字的卡不再进队列
   并且进度条下面写明跳过了几张（数字与单复数都对）。
 - **悬浮控件不再压内容**：顶部页签与底部拍照键的避让、时间轴主干的连续性，都在截图上确认过。
+- **未覆盖语种的首屏**：系统语言换成 `fr-FR` 并重启后，首屏整屏英文（详见下一段）。
 
 **AVD 验不了、必须真机**的：1–7（相机、抠图边缘、旋转、ROM 首帧、触觉、TTS）、
 9（深色小组件与冷启动）、10（`adb backup` / Google One 的白名单）、13（12MB 原图的相册导入）、
 14–17（录音与麦克风权限的三种答案）、23（连点两下的真实挂起窗口）、24（一小时门槛的清扫扫描）。
 
-**还有一条只能真机看：把手机系统语言换成一种没覆盖的（法语/西语），首屏应当是英文。**
-机器守不住它：默认包不含中日韩文字这一条有结构守卫（`LocaleConfigMatchesResourcesTest`），
-但**解析层面**在 AVD 上量不到——`createConfigurationContext(fr)` 取到的英文是个常量：
+**未覆盖语种回落到英文**（2026-10-07 在 AVD 上确认过）：把系统语言换成 `fr-FR` 后首屏是
+整屏英文——「Moments / Words / Nothing recorded yet / Point the camera at anything…」。
+前提是**重启一次**：只 `settings put system system_locales` 而不重启，这个值不传播到进程
+（`get-app-locales` 回读是 `[fr-FR]`，画面仍是中文），这正是这条之前被判成「只能真机看」的原因。
+命令：`adb shell settings put system system_locales fr-FR && adb reboot`，等 `sys.boot_completed=1`
+再装包启动；验完换回 `zh-CN` 并再重启一次。
+
+机器守不住它的**解析层面**：默认包不含中日韩文字这一条有结构守卫
+（`LocaleConfigMatchesResourcesTest`），但 `createConfigurationContext(fr)` 取到的英文是个常量——
 往源码里加一份真的 `values-fr/strings.xml`、再把 `fr` 注册进 `res/xml/locales_config.xml`、
-两个一起加，三次尝试都**没有**让它变成法语。改系统语言再截图也不行——那条命令在这台 AVD 上
-不传播到进程（`get-app-locales` 回读是 `[fr-FR]`，画面仍是中文），要验得连模拟器一起重启。
+两个一起加，三次尝试都**没有**让它变成法语。所以这条只能靠上面那个真传播的截图，进不了 CI。
 
 
 ## 词典是怎么生成的
