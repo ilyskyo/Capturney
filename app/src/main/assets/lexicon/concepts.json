@@ -1,0 +1,16 @@
+{"schemaVersion":2,"language":"en","entries":[
+{"id":"en.traffic_light","words":{"en":"traffic light","zh":"红绿灯","ja":"信号機","ko":"신호등"},"glosses":{"zh":"红绿灯","ja":"信号機","ko":"신호등"},"labelAliases":["traffic light","trafficlights"],"frequency":0,"source":"manual"},
+{"id":"en.fire_hydrant","words":{"en":"fire hydrant","zh":"消防栓","ja":"消火栓","ko":"소화전"},"glosses":{"zh":"消防栓","ja":"消火栓","ko":"소화전"},"labelAliases":["fire hydrant","fire hydrants"],"frequency":0,"source":"manual"},
+{"id":"en.stop_sign","words":{"en":"stop sign","zh":"停止标志","ja":"止まれ標識","ko":"정지 표지"},"glosses":{"zh":"停止标志","ja":"止まれ標識","ko":"정지 표지"},"labelAliases":["stop sign","stop signs"],"frequency":0,"source":"manual"},
+{"id":"en.parking_meter","words":{"en":"parking meter","zh":"停车计时器","ja":"駐車料金計","ko":"주차 요금계"},"glosses":{"zh":"停车计时器","ja":"駐車料金計","ko":"주차 요금계"},"labelAliases":["parking meter","parking meters"],"frequency":0,"source":"manual"},
+{"id":"en.potted_plant","words":{"en":"potted plant","zh":"盆栽","ja":"鉢植え","ko":"화분"},"glosses":{"zh":"盆栽","ja":"鉢植え","ko":"화분"},"labelAliases":["potted plant","potted plants","houseplant"],"frequency":0,"source":"manual"},
+{"id":"en.dining_table","words":{"en":"dining table","zh":"餐桌","ja":"ダイニングテーブル","ko":"식탁"},"glosses":{"zh":"餐桌","ja":"ダイニングテーブル","ko":"식탁"},"labelAliases":["dining table","dining tables"],"frequency":0,"source":"manual"},
+{"id":"en.sports_ball","words":{"en":"sports ball","zh":"运动球","ja":"スポーツボール","ko":"운동공"},"glosses":{"zh":"运动球","ja":"スポーツボール","ko":"운동공"},"labelAliases":["sports ball","sports balls"],"frequency":0,"source":"manual"},
+{"id":"en.baseball_bat","words":{"en":"baseball bat","zh":"棒球棒","ja":"バット","ko":"야구 배트"},"glosses":{"zh":"棒球棒","ja":"バット","ko":"야구 배트"},"labelAliases":["baseball bat","baseball bats"],"frequency":0,"source":"manual"},
+{"id":"en.baseball_glove","words":{"en":"baseball glove","zh":"棒球手套","ja":"グラブ","ko":"야구 글러브"},"glosses":{"zh":"棒球手套","ja":"グラブ","ko":"야구 글러브"},"labelAliases":["baseball glove","baseball gloves","baseball mitt"],"frequency":0,"source":"manual"},
+{"id":"en.tennis_racket","words":{"en":"tennis racket","zh":"网球拍","ja":"テニスラケット","ko":"테니스 라켓"},"glosses":{"zh":"网球拍","ja":"テニスラケット","ko":"테니스 라켓"},"labelAliases":["tennis racket","tennis rackets"],"frequency":0,"source":"manual"},
+{"id":"en.wine_glass","words":{"en":"wine glass","zh":"高脚杯","ja":"ワイングラス","ko":"와인 잔"},"glosses":{"zh":"高脚杯","ja":"ワイングラス","ko":"와인 잔"},"labelAliases":["wine glass","wine glasses","wineglasses"],"frequency":0,"source":"manual"},
+{"id":"en.hot_dog","words":{"en":"hot dog","zh":"热狗","ja":"ホットドッグ","ko":"핫도그"},"glosses":{"zh":"热狗","ja":"ホットドッグ","ko":"핫도그"},"labelAliases":["hot dog","hot dogs","hotdog"],"frequency":0,"source":"manual"},
+{"id":"en.teddy_bear","words":{"en":"teddy bear","zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"glosses":{"zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"labelAliases":["teddy bear","teddy bears"],"frequency":0,"source":"manual"},
+{"id":"en.hair_drier","words":{"en":"hair drier","zh":"吹风机","ja":"ヘアドライヤー","ko":"헤어 드라이기"},"glosses":{"zh":"吹风机","ja":"ヘアドライヤー","ko":"헤어 드라이기"},"labelAliases":["hair drier","hair dryer","hair driers","hair dryers"],"frequency":0,"source":"manual"}
+]}
