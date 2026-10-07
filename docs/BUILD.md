@@ -474,6 +474,13 @@ python3 -m unittest discover tools
 1. **Kotlin 编译失败时，测试仍会跑上一次的 class。** 于是你会看到一批早已删掉的断言在报错，
    而真正的原因只在 `compileDebugKotlin` 的输出里。先 `grep '^e:'` 确认没有编译错误，再信测试结果；
    结果看着不可能时，用 `./gradlew testDebugUnitTest --rerun-tasks --no-configuration-cache`。
+   **同一件事还有一条更阴的版本**：词典那几个 JSON 在 `src/main/assets/` 下，而 `testDebugUnitTest`
+   把它们当**普通文件路径**读（`File("src/main/assets/lexicon/…")`），**不是 Gradle 声明的输入**。
+   所以改了 assets 而不加 `--rerun-tasks`，测试任务可能整个不复跑，你读到的是上一次的 XML——
+   2026-10-08 就这么被骗过一次：我从 `concepts.json` 删掉一条概念后跑守卫，它「绿」了，
+   我以为那条守卫是假的；其实那一轮根本没执行（同批输出里还印着 gradle 的用法帮助，
+   因为我把 `--rerun` 当成了任务参数，RC=1 来自参数错误而不是断言）。
+   加 `--rerun-tasks` 重跑后立刻红了四条。**证伪失败时先怀疑自己没真的重跑，再怀疑断言**。
 2. **纯逻辑不许 import `android.graphics`。** `unitTests.isReturnDefaultValues = true` 会让那些类
    返回 0/空值，`RectF.equals` 又不比较内容，于是几何测试全红且报错信息完全指不到原因。
    `CameraFocusMath` 和 `OverlayGeometry` 因此各自定义 `NormBox` / `SensorCrop`。

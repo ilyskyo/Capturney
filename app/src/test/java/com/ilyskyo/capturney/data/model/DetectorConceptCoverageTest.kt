@@ -106,7 +106,14 @@ class DetectorConceptCoverageTest {
     fun everyNewConceptIsFindableInAllFourLanguages() {
         val unfindable = buildList {
             for ((label, id) in COMPOUND_LABELS) {
-                val entry = index.byId(id) ?: continue
+                val entry = index.byId(id)
+                // 以前这里是 `?: continue`：概念一旦被删掉，这两条就**静默少测一个**，
+                // 而它们的的名字仍承诺「每个复合概念四语可搜、都有背面」。查不到必须算红，
+                // 不能算跳过——守卫跳过的地方和没有守卫一样（本仓库已经为此返工过一次）。
+                if (entry == null) {
+                    add("$id 在 en.json/concepts.json 里不存在——这条概念根本没进词典，不是可跳过的样本")
+                    continue
+                }
                 for (tag in listOf("en", "zh", "ja", "ko")) {
                     val word = entry.words[tag] ?: continue
                     val foundIds = index.search(word).map { it.id }.toSet()
@@ -129,7 +136,14 @@ class DetectorConceptCoverageTest {
     fun everyNewConceptHasAMotherTongueGlossForAllThreeNativeLanguages() {
         val missing = buildList {
             for ((_, id) in COMPOUND_LABELS) {
-                val entry = index.byId(id) ?: continue
+                val entry = index.byId(id)
+                // 以前这里是 `?: continue`：概念一旦被删掉，这两条就**静默少测一个**，
+                // 而它们的的名字仍承诺「每个复合概念四语可搜、都有背面」。查不到必须算红，
+                // 不能算跳过——守卫跳过的地方和没有守卫一样（本仓库已经为此返工过一次）。
+                if (entry == null) {
+                    add("$id 在 en.json/concepts.json 里不存在——这条概念根本没进词典，不是可跳过的样本")
+                    continue
+                }
                 for (tag in listOf("zh", "ja", "ko")) {
                     if (entry.glosses[tag].isNullOrBlank()) add("$id 缺 glosses[$tag]")
                 }
