@@ -6,6 +6,10 @@ package com.ilyskyo.capturney
 import android.app.Application
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -79,6 +83,47 @@ class SearchCollectsIntoTheDeckTest {
         awaitCount(1)
         assertCount(1, "点了「收进牌组」，牌组里没有这张词")
         compose.onAllNodesWithText(str(R.string.search_collected_badge)).onFirst().assertIsDisplayed()
+    }
+
+    /**
+     * 同一次搜索里**快速双击**同一行，牌组只许长出一张。
+     *
+     * 为什么这一条值得单独存在：那颗按钮收过一次之后就自己禁用
+     * （`enabled = s.entry.id !in state.justAdded`），所以「慢慢点两次」在 UI 层就到不了
+     * ViewModel。剩下的真窗口是**禁用态还没随重组落地**的那半秒——正是 #23 与 #30 修的那一族。
+     *
+     * 按钮按 `"collect-" + entry.id` 打 tag，而这里的 id 是从 `lexicon.search()` 取的——
+     * 就是搜索页自己用的那个调用，所以「第一行的那颗按钮」与「我点的那颗」不会错位。
+     * 找不到时把界面上真实存在的 tag 打进消息：上一版这里失败是因为我照 en.json 的写法
+     * 猜了个 `en.bridge`，猜错了却只看到一句 assertExists，什么信息都没有。
+     */
+    @Test
+    fun aFastDoubleTapOnTheSameRowStillAddsOneCard() {
+        openSearch()
+        typeQuery(WORD)
+        // 先等建议渲染出来。上一版这里直接抓 tag 快照，拿到的是空列表——
+        // 搜索是异步发流的，那不等于「按钮不存在」。
+        awaitNode(str(R.string.search_collect))
+
+        val expected = "collect-" + container().lexicon.search(WORD).first().id
+        val collectTags = SemanticsMatcher("带 collect- 前缀的 tag") { node ->
+            node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("collect-") == true
+        }
+        val present = compose.onAllNodes(collectTags).fetchSemanticsNodes()
+            .map { it.config.getOrNull(SemanticsProperties.TestTag).orEmpty() }
+        assertTrue(
+            "界面上找不到 $expected；真实存在的按钮是 $present。" +
+                "空列表意味着建议行根本没渲染出来，那要先去查搜索有没有命中",
+            present.contains(expected),
+        )
+
+        val button = compose.onNodeWithTag(expected)
+        button.performClick()
+        button.performClick()
+        compose.waitForIdle()
+
+        awaitCount(1)
+        assertCount(1, "同一次搜索里快速双击同一行，牌组长出了两张")
     }
 
     @Test

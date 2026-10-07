@@ -21,6 +21,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -132,6 +133,10 @@ fun SearchScreen(
                             TextButton(
                                 onClick = { onCollect(s.entry.id) },
                                 enabled = s.entry.id !in state.justAdded,
+                                // 设备测试要点的就是这一颗。按文字找会撞上好几行（一个前缀命中
+                                // bridge / bridges / abridge…，每行都有一颗同名按钮），而收过
+                                // 一次之后这一行的文字会变成徽标——按 id 打 tag 才指得准同一行。
+                                modifier = Modifier.testTag("collect-" + s.entry.id),
                             ) {
                                 Text(
                                     text = stringResource(
