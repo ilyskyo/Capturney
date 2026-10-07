@@ -726,12 +726,17 @@ private fun RememberProgress(done: Int, total: Int, modifier: Modifier = Modifie
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            RollingNumber(value = done)
-            Text(
-                text = "/$total",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
-            )
+            // 数字与它的分母是一个排版整体，中间不该有缝。
+            // 原来两者并排放在这个 `spacedBy(Space.xs)` 的 Row 里，于是渲染成「0 /10」——
+            // 斜杠左边有隙、右边没有，四种语言都一样难看，而它只有在真机截图里才看得出来。
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                RollingNumber(value = done)
+                Text(
+                    text = "/$total",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                )
+            }
         }
     }
 }
