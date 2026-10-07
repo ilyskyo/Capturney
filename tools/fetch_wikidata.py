@@ -15,9 +15,15 @@
 那是人写的、我们本来就信任的数据。所以规则是：
 
 1. 英文标签必须与查询词完全相等（忽略大小写）——先排掉「Book (职业)」这类；
-2. 候选里**恰好一个**的中文标签出现在该词的中文释义里 → 收；
-3. 中文那条判不出来时，只有在「候选唯一」的情况下才收；
-4. ja 标签必须含假名或汉字、ko 必须含谚文，否则视为脏数据丢掉。
+2. 候选里**恰好一个**的中文标签出现在该词的中文释义里 → 收；判不出来就放弃。
+
+第 2 条是唯一依据，不再有「候选唯一就直接收」的兜底。试过，那条兜底会放进错的东西：
+`all` 与 `good` 在维基数据里各有一个同名实体（一个是桨/一切，一个是评价或牌子），
+中文标签分别是「所有/全部」之外的具体物，于是兜底收下后给出 `オール`、`グッド`——
+看着像译词，其实不是那个形容词/限定词。而 `time`、`year` 靠中文对齐稳稳命中「時間/시간」「年/년」。
+错一个释义比少一个释义糟得多，所以宁可让命中率掉下来。
+
+3. ja 标签必须含假名或汉字、ko 必须含谚文，否则视为脏数据丢掉。
 
 宁缺勿滥的理由：释义是**卡片背面要被评级的那一行**。给错一个词比少一个词糟得多——
 用户会照着错的东西去记，而界面上一切正常，没人会去查。
@@ -126,16 +132,13 @@ def labels_for(ids: list[str]) -> dict[str, dict[str, str]]:
 
 
 def pick(word: str, zh_gloss: str, candidates: list[str], labels: dict[str, dict[str, str]]) -> dict[str, str]:
-    """从候选里挑一个，规则见模块 docstring。挑不出来就返回空 dict。"""
-    if not candidates:
+    """从候选里挑一个。**只认中文对齐这一条依据**，见模块 docstring。"""
+    if not candidates or not zh_gloss:
         return {}
-    chosen = candidates[0] if len(candidates) == 1 else None
-    if chosen is None and zh_gloss:
-        agreeing = [qid for qid in candidates if labels.get(qid, {}).get("zh") and labels[qid]["zh"] in zh_gloss]
-        chosen = agreeing[0] if len(agreeing) == 1 else None
-    if chosen is None:
+    agreeing = [qid for qid in candidates if labels.get(qid, {}).get("zh") and labels[qid]["zh"] in zh_gloss]
+    if len(agreeing) != 1:
         return {}
-    got = labels.get(chosen, {})
+    got = labels.get(agreeing[0], {})
     value_ja, value_ko = got.get("ja", ""), got.get("ko", "")
     entry: dict[str, str] = {}
     if value_ja and has_script(value_ja, JA_RANGES):
