@@ -122,9 +122,16 @@ def parse_exchange(raw: str) -> dict[str, str]:
 
 
 def first_noun_sense(translation: str) -> str | None:
-    """Extract one short Chinese gloss for the noun sense.
+    """Extract one short Chinese gloss for the word's **primary** sense.
 
     'n. 杯子, 茶杯\\nvt. 使成杯状' -> '杯子'
+    'vt. 看见\\nn. 主教的职位'      -> '看见'
+
+    以前这里是「扫到任意一个 `n.` 块为止」，于是 12006 条里有 828 条拿到了一个生僻的
+    名词化义项：`see` 变成「主教的职位」、`if` 变成「条件」、`get` 变成「救球」、
+    `he` 变成「男孩」。挑名词的初衷是对的（这个 App 的记录以可摄名词为主），
+    但**具体名词的首块本来就是 `n.`**，所以「只取首块」既留着那个好处，
+    又不再为动词/介词/代词硬凑一个冷门名词。
 
     Deliberately keeps a single sense: a card front wants one clean answer, and the remaining
     senses are exactly what makes raw dictionary output unusable as vocabulary.
@@ -145,10 +152,14 @@ def first_noun_sense(translation: str) -> str | None:
         if not candidate:
             continue
         lowered = candidate.lower()
-        if not (lowered.startswith("n.") or lowered.startswith("n ")):
-            continue
-
-        body = candidate[2:] if lowered.startswith("n.") else candidate[1:]
+        # 只认首块：第一个带词性标记的块就是这个词的主义项，后面的块属于别的词性/别的义项。
+        marker = next((m for m in POS_MARKERS if lowered.startswith(m)), None)
+        if marker is None:
+            body = candidate
+        elif not lowered.startswith("n."):
+            body = candidate[len(marker):]
+        else:
+            body = candidate[2:]
         for raw_sense in SENSE_SPLIT_RE.split(body):
             sense = BRACKET_RE.sub(" ", raw_sense)
             sense = PAREN_RE.sub(" ", sense)
@@ -162,6 +173,9 @@ def first_noun_sense(translation: str) -> str | None:
             if any(is_latin(ch) for ch in sense):
                 continue
             return sense
+        # 首块里一个能看的义项都没有（全是超长或全是转写）：放弃这个词，而不是往下一个块
+        # 去捡一个生僻名词——那正是 828 条错释义的来路。
+        return None
     return None
 
 
