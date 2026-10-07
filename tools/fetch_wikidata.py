@@ -33,9 +33,16 @@
     python tools/fetch_wikidata.py --limit 1500                 # 按词频取前 N 个词
     python tools/fetch_wikidata.py --words my.txt --out-dir tools/out
     python tools/fetch_wikidata.py --limit 1500 --apply         # 写进 assets/lexicon/
+    python tools/fetch_wikidata.py --qids map.tsv --apply       # 人指认 QID，跳过所有自动消歧
+
+`--qids` 是这条路剩下的唯一走法：map.tsv 一行一个「词<TAB>QID」，实体由人看着候选的
+英文标签与 P31 类别指认，工具只负责取标签并过一遍字符集检查。它**不做**任何自动挑选，
+所以也不会因为候选集抖动而挑错——代价是每个词都要有人读过一遍。
 
 进度存在 `<out-dir>/gloss-progress.json`，中断后重跑只查没查过的词。
 网络失败**不记入进度**（记了就等于宣布「这个词没有」，一次抖动会变成永久缺口）。
+两种模式都只发 **ja 与 ko 都齐** 的词：`GlossOverlayCoverageTest` 要求两边覆盖同一批 id，
+只补一边会让那份数据整体不合格。
 """
 
 from __future__ import annotations
@@ -131,6 +138,16 @@ def labels_for(ids: list[str]) -> dict[str, dict[str, str]]:
     return out
 
 
+def value_from(got: dict[str, str]) -> dict[str, str]:
+    """从一个已确定身份的实体取出 ja/ko；不认的语言（拉丁转写、空值）留空。"""
+    entry: dict[str, str] = {}
+    for lang, ranges in (("ja", JA_RANGES), ("ko", KO_RANGES)):
+        text = got.get(lang, "")
+        if text and has_script(text, ranges):
+            entry[lang] = text
+    return entry
+
+
 def pick(word: str, zh_gloss: str, candidates: list[str], labels: dict[str, dict[str, str]]) -> dict[str, str]:
     """从候选里挑一个。**只认「候选的中文标签是 ECDICT 释义的子串」这一条依据**。
 
@@ -164,14 +181,76 @@ def pick(word: str, zh_gloss: str, candidates: list[str], labels: dict[str, dict
     agreeing = [qid for qid in candidates if labels.get(qid, {}).get("zh") and labels[qid]["zh"] in zh_gloss]
     if len(agreeing) != 1:
         return {}
-    got = labels.get(agreeing[0], {})
-    value_ja, value_ko = got.get("ja", ""), got.get("ko", "")
-    entry: dict[str, str] = {}
-    if value_ja and has_script(value_ja, JA_RANGES):
-        entry["ja"] = value_ja
-    if value_ko and has_script(value_ko, KO_RANGES):
-        entry["ko"] = value_ko
-    return entry
+    return value_from(labels.get(agreeing[0], {}))
+
+
+def write_outputs(progress: dict[str, dict[str, str]], out_dir: Path, apply: bool) -> int:
+    """把进度落成 gloss-ja/ko.json，--apply 时合并进 assets。"""
+    # GlossOverlayCoverageTest 要求 ja 与 ko 覆盖**同一批** id（少一边就是两边都不许发），
+    # 所以只收两种语言都齐的词，并在这里把「只差一边」的那些摊出来给人看。
+    both = {w: v for w, v in progress.items() if v.get("ja") and v.get("ko")}
+    half = sorted(w for w, v in progress.items() if bool(v.get("ja")) != bool(v.get("ko")))
+    ja = [{"id": f"en.{w}", "word": v["ja"]} for w, v in sorted(both.items())]
+    ko = [{"id": f"en.{w}", "word": v["ko"]} for w, v in sorted(both.items())]
+    if half:
+        print(f"只有一种语言、本轮不发（{len(half)}）：{' '.join(half[:40])}", file=sys.stderr)
+    for name, entries in (("gloss-ja.json", ja), ("gloss-ko.json", ko)):
+        (out_dir / name).write_text(
+            json.dumps({"schemaVersion": 1, "language": name.split("-")[1].split(".")[0], "entries": entries},
+                       ensure_ascii=False), encoding="utf-8")
+    print(f"ja {len(ja)} 条 / ko {len(ko)} 条 → {out_dir}", file=sys.stderr)
+
+    if apply:
+        # 合并而不是覆盖：assets 里那份是手工攒下来的，而本次进度可能只覆盖了几十个词。
+        # 直接写整个文件会把手工数据冲掉——那种丢失在文件行数上看不出来（行数照样「很多」），
+        # 只有拿旧文件比才发现，所以这里就按 id 合并，并**拒绝**任何让条数变小的写入。
+        for name, generated in (("gloss-ja.json", ja), ("gloss-ko.json", ko)):
+            target = ASSET_DIR / name
+            existing = (
+                json.loads(target.read_text(encoding="utf-8")).get("entries", []) if target.exists() else []
+            )
+            by_id = {item["id"]: item["word"] for item in existing}
+            added = 0
+            for item in generated:
+                if item["id"] in by_id:
+                    continue  # 已有的值优先：手工挑过的释义比生成的更可信
+                by_id[item["id"]] = item["word"]
+                added += 1
+            merged = [{"id": k, "word": v} for k, v in sorted(by_id.items())]
+            if len(merged) < len(existing):
+                raise SystemExit(f"拒绝写入 {name}：合并后 {len(merged)} 条 < 现有 {len(existing)} 条")
+            target.write_text(
+                json.dumps({"schemaVersion": 1, "language": name.split("-")[1].split(".")[0], "entries": merged},
+                           ensure_ascii=False) + "\n",
+                encoding="utf-8")
+            print(f"{name}: 现有 {len(existing)} + 新增 {added} = {len(merged)} 条", file=sys.stderr)
+    return 0
+
+
+def from_qids(path: Path) -> dict[str, dict[str, str]]:
+    """按人工指认的「词<TAB>QID」表取标签——剩下那批判不出来的词只能走这条（见 pick 的 docstring）。
+
+    规则挑实体之所以不能用，是因为候选集不可复现；而**指认**是可核对的：
+    看一眼那个 QID 的英文标签和 P31 类别就能确认它是那个概念而不是某部电影或轨道站。
+    标签本身仍来自 Wikidata（CC0），不由这里生成，所以这条路径不引入任何新数据源。
+    """
+    rows = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip().startswith("#"):
+            continue  # 这张表要提交进仓库，每一行都得带上「为什么是这一个实体」，而注释只能写在行里
+        word, _, qid = line.partition("\t")
+        if word.strip() and qid.strip():
+            rows.append((word.strip().lower(), qid.strip()))
+    labels = labels_for(sorted({qid for _, qid in rows}))
+    progress: dict[str, dict[str, str]] = {}
+    for word, qid in rows:
+        got = labels.get(qid, {})
+        # 英文标签与查询词不一致，多半是指认错了实体（把某个车站或电影当成了那个概念）。
+        # 只报不丢：标签可能有历史写法，最终由读表的人判。
+        if got.get("en", "").lower() != word:
+            print(f"  注意：{word} 指认到 {qid}，其英文标签是 {got.get('en', '')!r}", file=sys.stderr)
+        progress[word] = value_from(got)
+    return progress
 
 
 def main() -> int:
@@ -182,6 +261,8 @@ def main() -> int:
     parser.add_argument("--apply", action="store_true", help="写进 assets/lexicon/gloss-*.json")
     parser.add_argument("--replay", default="",
                         help="不发任何请求，只按这份候选快照重新判定（用来验规则可复现）")
+    parser.add_argument("--qids", default="",
+                        help="人工指认的「词<TAB>QID」表：跳过所有自动消歧，只取这些实体的标签")
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir)
@@ -205,6 +286,11 @@ def main() -> int:
         hits = sum(1 for r in rows if r["verdict"])
         print(f"replay：{len(rows)} 词，判定 {hits} 条有值 -> {Path(args.replay).with_name('replay.json')}", file=sys.stderr)
         return 0
+
+    if args.qids:
+        # 走这条时一个候选都不查：自动消歧的五种规则都已否证（见 pick 的 docstring），
+        # 剩下的缺口由人指认实体，工具只负责把 CC0 标签取回来并过一遍字符集检查。
+        return write_outputs(from_qids(Path(args.qids)), out_dir, args.apply)
 
     pairs = load_words(args.limit)
     if args.words:
@@ -251,41 +337,9 @@ def main() -> int:
 
     (out_dir / "candidates.json").write_text(json.dumps(snapshot, ensure_ascii=False), encoding="utf-8")
 
-    ja = [{"id": f"en.{w}", "word": v["ja"]} for w, v in sorted(progress.items()) if v.get("ja")]
-    ko = [{"id": f"en.{w}", "word": v["ko"]} for w, v in sorted(progress.items()) if v.get("ko")]
-    for name, entries in (("gloss-ja.json", ja), ("gloss-ko.json", ko)):
-        (out_dir / name).write_text(
-            json.dumps({"schemaVersion": 1, "language": name.split("-")[1].split(".")[0], "entries": entries},
-                       ensure_ascii=False), encoding="utf-8")
-    print(f"ja {len(ja)} 条 / ko {len(ko)} 条 → {out_dir}", file=sys.stderr)
     if skipped:
         print(f"因服务不可用跳过 {len(skipped)} 个词（未记入进度，重跑会再试）", file=sys.stderr)
-
-    if args.apply:
-        # 合并而不是覆盖：assets 里那份是手工攒下来的 157 条，而本次进度可能只覆盖了几十个词。
-        # 直接写整个文件会把手工数据冲掉——那种丢失在文件行数上看不出来（行数照样「很多」），
-        # 只有拿旧文件比才发现，所以这里就按 id 合并，并**拒绝**任何让条数变小的写入。
-        for name, generated in (("gloss-ja.json", ja), ("gloss-ko.json", ko)):
-            target = ASSET_DIR / name
-            existing = (
-                json.loads(target.read_text(encoding="utf-8")).get("entries", []) if target.exists() else []
-            )
-            by_id = {item["id"]: item["word"] for item in existing}
-            added = 0
-            for item in generated:
-                if item["id"] in by_id:
-                    continue  # 已有的值优先：手工挑过的释义比生成的更可信
-                by_id[item["id"]] = item["word"]
-                added += 1
-            merged = [{"id": k, "word": v} for k, v in sorted(by_id.items())]
-            if len(merged) < len(existing):
-                raise SystemExit(f"拒绝写入 {name}：合并后 {len(merged)} 条 < 现有 {len(existing)} 条")
-            target.write_text(
-                json.dumps({"schemaVersion": 1, "language": name.split("-")[1].split(".")[0], "entries": merged},
-                           ensure_ascii=False) + "\n",
-                encoding="utf-8")
-            print(f"{name}: 现有 {len(existing)} + 新增 {added} = {len(merged)} 条", file=sys.stderr)
-    return 0
+    return write_outputs(progress, out_dir, args.apply)
 
 
 if __name__ == "__main__":

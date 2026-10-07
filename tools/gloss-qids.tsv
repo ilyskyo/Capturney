@@ -1,0 +1,21 @@
+# 人工指认的「词 → Wikidata 实体」表，供 `tools/fetch_wikidata.py --qids` 取标签。
+#
+# 这张表存在的全部理由：自动消歧的五条规则都在真实数据上被否证了（见 fetch_wikidata.py 的
+# pick docstring 与 docs/BUILD.md 那张表），而**指认实体**这一步是可核对的——下面每一条都
+# 写清了它是按什么证据被认定成「就是这个概念」而不是某部电影、某个轨道站的。
+# 标签本身不在这张表里，仍从 Wikidata（CC0）现取，所以改标签只要重跑工具。
+#
+# 格式：词<TAB>QID。一行一个词；候选与 P31 类别可用 tools/out/gap_probe.py 一次性摊出来核对。
+
+# Q1248784：英文标签 airport，P31 = type of aerodrome（机场的上位词）。
+# 同一批候选里 Q409022 的中文标签「国际机场」看着更像，但它的 P31 是 film——那是一部电影；
+# Q4698883/Q4073688 的 P31 是 metro station，是 Atlanta 两个叫 Airport 的轨道交通站。
+airport	Q1248784
+
+# Q68：英文标签 computer / electronic computer，P31 = invention, machine。
+# 候选里另一个 Q5157408 的 P31 是 scientific journal（一本叫《计算机》的杂志）。
+computer	Q68
+
+# Q274393：英文标签 bakery，中文标签是繁体的「西餅店」，与简体释义「面包店」共享 1 字，
+# 所以子串规则判不出来；它是这个概念唯一的候选实体（其余两个候选没有任何标签）。
+bakery	Q274393

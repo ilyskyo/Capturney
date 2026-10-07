@@ -400,6 +400,7 @@ python3 tools/build_lexicon.py ecdict.csv --out app/src/main/assets/lexicon/en.j
 ```bash
 python3 tools/fetch_wikidata.py --limit 400 --out-dir tools/out   # 先落到 tools/out，可中断续跑
 python3 tools/fetch_wikidata.py --limit 400 --apply               # 合并进 assets（不覆盖）
+python3 tools/fetch_wikidata.py --qids map.tsv --apply            # 人指认 QID：词<TAB>QID，一行一个
 ```
 
 三条不能改的规矩，都写在工具里：
