@@ -170,16 +170,17 @@ class AdjectiveMarkerIsKnownDefectTest(unittest.TestCase):
     修好之后这条会**意外通过**而报红，那时删掉本类并把取值接进生成器。
     """
 
-    @unittest.expectedFailure
-    def test_adjective_first_words_must_still_get_a_gloss(self) -> None:
-        for word, translation in [
-            ("down", "a. 向下的" + chr(92) + "nadv. 下, 下去, 降下"),
-            ("back", "a. 后面的" + chr(92) + "nvt. 使后退, 支持"),
-        ]:
-            self.assertIsNotNone(
-                F.first_noun_sense(translation.replace(chr(92) + "n", "\n")),
-                f'{word} 的首块是 `a.`，现在会得到 None——重生成会把它从词典里删掉',
-            )
+    def test_adjective_first_words_fall_through_to_the_next_block(self) -> None:
+        # 这条以前用 expectedFailure 记着缺陷（首块 `a. 向下的` 匹配不上标记 → 整词返回 None →
+        # build() 把 down/back/bad/best/deep… 这 62 个常用词从词典里删掉）。
+        # 现在首块取不到东西会再试下一个块，所以它断言的是**修好之后的行为**：
+        # down 拿到 adv. 块的第一义项，back 拿到 vt. 块的第一义项，都不再是 None。
+        self.assertEqual("下", F.first_noun_sense("a. 向下的\nadv. 下, 下去, 降下"))
+        self.assertEqual("使后退", F.first_noun_sense("a. 后面的\nvt. 使后退, 支持"))
+
+    def test_a_word_with_no_usable_block_at_all_still_returns_none(self) -> None:
+        # 兜底必须是「真的什么都没有」才放弃：全是可以长的、转写的、或非中文的块。
+        self.assertIsNone(F.first_noun_sense("abbr. DNA\n[计] Xylophone-7"))
 
 
 if __name__ == "__main__":
