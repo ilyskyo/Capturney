@@ -74,10 +74,23 @@ class TimelineSelectionTest {
             writePhoto(container, PHOTO_NAME)
             val now = System.currentTimeMillis()
             val day = TimeUnit.DAYS.toMillis(1)
+            val diary = container.diary
             runBlocking {
+                // 先按自己的 id 清一遍再种：整轮跑的时候前一个类可能把同 id 留在**这一进程的内存文档**里
+                // （`addEntry` 同 id 只认第一次，于是这里静默地什么都没加，症状是「找不到 cup 那一节」，
+                // 而它看起来像是界面少了东西，不是夹具没种进去）。
+                FIXTURE_IDS.forEach { diary.deleteEntry(it) }
                 // 两条各占一天：同一天会被分进同一组，而多选要跨组走。
-                container.diary.addEntry(entry("fixture-select-bowl", "bowl", now - day))
-                container.diary.addEntry(entry("fixture-select-cup", "cup", now))
+                listOf(
+                    entry("fixture-select-bowl", "bowl", now - day),
+                    entry("fixture-select-cup", "cup", now),
+                ).forEach { card ->
+                    assertTrue(
+                        "夹具没种进去：${card.id} 已经在这份文档里了。" +
+                            "整轮跑时前一个类的收尾没跑完，去查那一条",
+                        diary.addEntry(card),
+                    )
+                }
             }
         }
 
