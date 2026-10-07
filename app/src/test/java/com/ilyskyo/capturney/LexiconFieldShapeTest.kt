@@ -175,6 +175,21 @@ class LexiconFieldShapeTest {
             "within" to "在...之内", // prep. 在...之内（原 n. 内部）
             "offer" to "提供",     // vt. 提供（原 n. 给予）
             "may" to "可以",       // aux. 愿能, 可以——首个义项是文言说法
+            // 第三批：同一块里「第一个义项不是最常用那个」，取值全在该词自己的行内。
+            "state" to "状态",     // 原发 州（n. 州, 状态, 情形, 国家…）
+            "line" to "线",        // 原发 列（n. 列, 线, 绳…）
+            "second" to "第二",    // 原发 秒
+            "information" to "信息", // 原发 消息
+            "even" to "甚至",      // 原发 相等的（首块是 a. 平坦的, 相等的…）
+            "issue" to "问题",     // 原发 发行
+            "lot" to "许多",       // 原发 运气
+            "stand" to "站",       // 原发 站立
+            "hold" to "握住",      // 原发 把握
+            "effect" to "影响",    // 原发 结果
+            "party" to "聚会",     // 原发 宴会
+            "white" to "白色的",   // 原发 白色
+            "black" to "黑色的",   // 原发 黑色
+            "power" to "力量",     // 原发 力
         )
         val byWord = entries.associateBy { it.headword().lowercase() }
         val wrong = expected.mapNotNull { (word, want) ->
