@@ -97,6 +97,30 @@ EXTRA_ALIASES = {
     "dryer": ["drier"],
 }
 
+# 逐词指定的主义项。ECDICT 把 `n.` 块排在前面**与这个词实际怎么用无关**，只要它有名词义就先列，
+# 于是全英语最常用的一批词拿到生僻名词义：`give=弹性`、`good=善行`、`still=蒸馏室`、
+# `leave=许可`、`want=需要的东西`、`like=同样的`、`mean=卑贱的`、`high=高度`、`many=多数`、
+# `most=最多`、`old=以前`。下面每个取值都是该词**同一行里非名词块的原词**，逐条读过才写下来的。
+#
+# 为什么是这张表而不是一条规则，两条通用捷径都被实测否证过：
+#   * 「取首个非名词块的首个义项」有 4 个直接错（still→蒸馏、like→相似的、mean→低劣的、most→大多数的）；
+#   * 按中文串在 ECDICT 全语料里的频次排序，会改写 4531 条且条条变差（see→游览、take→抓）。
+# 改这里任何一条，必须连同 `LexiconFieldShapeTest.theMostFrequentWordsAreGlossedWithTheirCommonSense`
+# 的期望值一起改——那条测试就是用来让「悄悄改回去」变红的。
+PRIMARY_SENSES = {
+    "give": "给",        # vt. 给, 授予, 供给
+    "good": "好的",      # a. 好的, 优良的
+    "still": "静止的",   # a. 静止的, 不动的
+    "leave": "离开",     # vt. 离开, 剩下
+    "want": "要",        # vt. 要, 希望, 应该
+    "like": "喜欢",      # vt. 喜欢, 愿意
+    "mean": "意谓",      # vt. 意谓, 想要
+    "high": "高的",      # a. 高的, 高级的
+    "many": "许多的",    # a. 许多的
+    "most": "最",        # adv. 最, 最多
+    "old": "老的",       # a. 老的, 旧的
+}
+
 # efficientdet_lite0 输出的 COCO-80 类名里的单词成分。这些词必须在词典里：
 # 缺一个，检测器认出那个物体时就只能显示一枚「不认识」的词片。
 # 除常规频率门槛外它们享有额外通道（见 build()）：允许缺音标、允许非名词释义。
@@ -290,7 +314,7 @@ def build(args: argparse.Namespace) -> int:
                 skipped["ipa"] += 1
                 continue
 
-            gloss = first_noun_sense(row.get("translation") or "")
+            gloss = PRIMARY_SENSES.get(word) or first_noun_sense(row.get("translation") or "")
             if not gloss and required:
                 gloss = first_any_sense(row.get("translation") or "")
             if not gloss:
