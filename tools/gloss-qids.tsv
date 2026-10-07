@@ -27,3 +27,34 @@ bakery	Q274393
 # 这条是检测器词表里唯一一个「整词标签却没有 ja/ko 背面」的词（COCO 的其余带空格类别
 # 都在 concepts.json 里有整词概念，四语齐），日语/韩语用户拍到电视时背面原本是空的。
 tv	Q289
+
+# 第二批：检测器词表里的片段词。用户会在搜索页手打它们（fire / hair / tennis / baseball / dryer），
+# 而它们当时既不在 concepts.json 的整词概念里、也没有 ja/ko 注音层——背面是空的。
+# 每一条都先看 P31 是什么再认，不看「标签像不像」。
+
+# Q5369：P31 = sport / sport with racquet-stick-club，就是棒球这项运动。
+# 同批另四个候选的 P31 都是 video game（叫 Baseball 的游戏），不选。
+baseball	Q5369
+
+# Q443533：zh 烘乾機 / ja 乾燥機 / ko 건조기。这条没有 P31 断言，靠的是排除：
+# 同批其余候选是姓氏（family name）、乐团（musical group）与一批美国专利（United States patent），
+# 没有一个指的是「烘干机」这个物件。留空的那条不选，所以取这条。
+dryer	Q443533
+
+# Q3196：zh 火 / ja 火 / ko 불。其余候选的 P31 是 film、song/single、rock band、audio track、
+# family name——全叫 Fire，全不是「火」。同样没有 P31 断言，同样靠排除。
+fire	Q3196
+
+# hair 没收（曾收过又撤）：Q28472 的 P31 是 anatomical structure（毛髮，含兽毛），
+# 标签 ja 毛 / ko 털。털 在韩语里偏「兽毛/绒毛」，人头发该说 머리——一个范围指错的译词比留空更糟。
+# 同一批里 Q1165499 的中文标签也是「毛髮」，但它的 P31 是 dramatico-musical work，那是音乐剧《Hair》：
+# 只看标签一定会挑错，这一条正是「必须读 P31」的理由，也是 hair 不进这张表的原因。
+
+# Q847：P31 = type of sport / hobby，网球这项运动。
+# Q2700588 标签也是「网球 / テニス」但 P31 是 video game，且它的 ko 是拉丁字母 `Tennis`（会被字符集检查丢掉）。
+tennis	Q847
+
+# 有意**不收**的：`parking` 的 Q267917（ja 駐車 / ko 주차장）。주차장 是「停车场」这个场所，
+# 不是 parking 这个动作；给它发一个指错概念的译词，比留着不译更糟（同一行的其余候选是电影与漫画）。
+# 同理 `meter` 的两个候选（Q192624 韵律、Q630649 节拍）说的是诗律/拍子，不是「停车计时器/米」，
+# 也不收——这些词的整词概念在 concepts.json 里已经有四语（如 parking meter），不靠片段兜底。
