@@ -39,14 +39,29 @@ class DetectorConceptCoverageTest {
     private val dir = File("src/main/assets/lexicon")
     private val json = Json { ignoreUnknownKeys = true }
 
-    /** 与 `LexiconRepository.reload()` 同样的合并顺序：内置 → 概念补丁。 */
+    /**
+     * 与 `LexiconRepository.reload()` 同样的合并顺序：内置 → 概念补丁 → 注音层。
+     *
+     * 第三份必须有。ja/ko 的释义不在 `concepts.json` 里，而在 `gloss-ja.json` / `gloss-ko.json`
+     * 那一层；测试不合并它，就会拿「注音层没读到」当成「概念缺母语释义」来报——
+     * 我第一次跑就是这么红的，报的是 `en.cellphone 缺 glosses[ja]`，
+     * 而设备上那条其实有释义。**断言错的方向比断言失败更贵**：它会引导人去补已经对的东西。
+     */
     private val index: LexiconIndex by lazy {
         val entries = LinkedHashMap<String, LexiconEntry>()
-        for (name in listOf("en.json", "concepts.json")) {
-            val file = File(dir, name)
-            if (!file.isFile) continue
-            json.decodeFromString(LexiconFile.serializer(), file.readText(Charsets.UTF_8))
-                .entries.forEach { entries[it.id] = it }
+        val builtinFile = File(dir, "en.json")
+        json.decodeFromString(LexiconFile.serializer(), builtinFile.readText(Charsets.UTF_8))
+            .entries.forEach { entries[it.id] = it }
+        json.decodeFromString(LexiconFile.serializer(), File(dir, "concepts.json").readText(Charsets.UTF_8))
+            .entries.forEach { entries[it.id] = it }
+        for (tag in listOf("ja", "ko")) {
+            val overlay = File(dir, "gloss-$tag.json")
+            if (!overlay.isFile) continue
+            val parsed = json.decodeFromString(GlossOverlayFile.serializer(), overlay.readText(Charsets.UTF_8))
+            for (item in parsed.entries) {
+                val existing = entries[item.id] ?: continue
+                entries[item.id] = existing.withGloss(parsed.language, item.word)
+            }
         }
         LexiconIndex(entries.values.toList())
     }
@@ -77,6 +92,50 @@ class DetectorConceptCoverageTest {
             if (top?.entry?.id == id) null else "'$label' 命中 ${top?.entry?.id}，应为 $id"
         }
         assertTrue("复合类别被解析成了别的东西：\n${wrong.joinToString("\n")}", wrong.isEmpty())
+    }
+
+    /**
+     * 补概念不能只补到「检测器认得」这一半——人得**查得到**它。
+     *
+     * 取景页长出来的词片与搜索页走的是两条路：搜索是 `index.search(query, language)`，
+     * 它按「任一语言的词头或任一条释义」匹配。所以四种语言都得能把它搜出来：
+     * 日语母语的人搜「信号機」，搜不到就等于这个概念对他不存在——
+     * 而这正是 #49 那一整轮的问题形状（界面有四种语言，内容只做了两种）。
+     */
+    @Test
+    fun everyNewConceptIsFindableInAllFourLanguages() {
+        val unfindable = buildList {
+            for ((label, id) in COMPOUND_LABELS) {
+                val entry = index.byId(id) ?: continue
+                for (tag in listOf("en", "zh", "ja", "ko")) {
+                    val word = entry.words[tag] ?: continue
+                    val foundIds = index.search(word).map { it.id }.toSet()
+                    if (id !in foundIds) add("$id 用 $tag 的「$word」搜不出来")
+                }
+                // 英文标签本身也要能搜到（用户可能在搜索页打他刚看到的那个词）。
+                if (id !in index.search(label).map { it.id }.toSet()) add("$id 搜「$label」找不到")
+            }
+        }
+        assertTrue("这些概念查不到：\n${unfindable.joinToString("\n")}", unfindable.isEmpty())
+    }
+
+    /**
+     * 四种语言各自当母语时，这张卡都**有背面**。
+     *
+     * 铸卡那一步只带真的存在的那个语言的释义（借来的语言会被滤掉，见 `LexiconEntry.toCard`），
+     * 所以「words 里写了四语」不等于「四语母语的人拿得到背面」。这一条把两者对上。
+     */
+    @Test
+    fun everyNewConceptHasAMotherTongueGlossForAllThreeNativeLanguages() {
+        val missing = buildList {
+            for ((_, id) in COMPOUND_LABELS) {
+                val entry = index.byId(id) ?: continue
+                for (tag in listOf("zh", "ja", "ko")) {
+                    if (entry.glosses[tag].isNullOrBlank()) add("$id 缺 glosses[$tag]")
+                }
+            }
+        }
+        assertTrue("这些概念没有母语释义，卡背面会是空的：\n${missing.joinToString("\n")}", missing.isEmpty())
     }
 
     private companion object {

@@ -384,7 +384,14 @@ class LexiconIndex(entries: List<LexiconEntry>) {
                 if (exact != null) {
                     it.words.values.any { w -> w.equals(exact, ignoreCase = true) }
                 } else {
-                    it.words.values.any { w -> normalize(w).contains(q) } ||
+                    // 去空格那一档搜索也要有：`match` 允许 "cell phone" 命中词头 "cellphone"，
+                    // 但搜索页走的是这个方法——用户在取景页看到「cell phone」的词片，
+                    // 到搜索页原样打进去却查不到，等于这条救济只管机器不管人。
+                    val flatQuery = q.replace(" ", "")
+                    it.words.values.any { w ->
+                        val n = normalize(w)
+                        n.contains(q) || n.replace(" ", "").contains(flatQuery)
+                    } ||
                         it.glosses.values.any { g -> g.contains(query, ignoreCase = true) }
                 }
             }
