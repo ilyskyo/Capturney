@@ -11,6 +11,8 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
 import org.junit.runner.RunWith
 
 /**
@@ -36,8 +38,12 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class MainActivityTabTest {
 
+    private val compose = createAndroidComposeRule<MainActivity>()
+
+    // 快照套在 Activity 规则**外面**：还原必须在 Activity 拆掉之后发生，
+    // 而多个 @get:Rule 字段之间的顺序 JUnit 不保证（见 PreserveAppFiles）。
     @get:Rule
-    val compose = createAndroidComposeRule<MainActivity>()
+    val rules: TestRule = RuleChain.outerRule(PreserveAppFiles()).around(compose)
 
     @Test
     fun theChosenTabSurvivesAModalPagePushedOnTopOfTheHomeScene() {

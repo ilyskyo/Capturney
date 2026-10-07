@@ -14,6 +14,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.RuleChain
+import org.junit.rules.TestRule
 import org.junit.runner.RunWith
 
 /**
@@ -52,8 +54,11 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ScreenAccessibilitySweepTest {
 
+    private val compose = createAndroidComposeRule<MainActivity>()
+
+    // 同 MainActivityTabTest：快照必须套在 Activity 规则外面，还原才发生在拆掉 Activity 之后。
     @get:Rule
-    val compose = createAndroidComposeRule<MainActivity>()
+    val rules: TestRule = RuleChain.outerRule(PreserveAppFiles()).around(compose)
 
     @Test
     fun everyClickableControlOnTheLookbackPageAnnouncesItself() {
