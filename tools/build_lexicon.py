@@ -12,7 +12,11 @@ Fetched separately; this script only reads the local CSV.
 Columns used
 ------------
 word       the English headword
-phonetic   IPA transcription, *without* slashes
+phonetic   Dictionary phonetics. ECDICT mixes two systems here: modern IPA
+           ("/ˈkʌp/", with ˈ ʃ θ ð ŋ ə …) and older Jones/KK-style strings
+           ("/hi:/", "/sei/" — plain Latin letters with a length mark).
+           `clean_ipa` normalises both to exactly one wrapping pair of slashes,
+           which is what the UI renders verbatim.
 translation Chinese senses, inline POS markers: "n. 杯子, 茶杯\\nvt. 使成杯状"
 pos        empty in the current dump; kept for forward compatibility
 collins    Collins rating 1-5
