@@ -346,6 +346,13 @@ CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前
 9（深色小组件与冷启动）、10（`adb backup` / Google One 的白名单）、13（12MB 原图的相册导入）、
 14–17（录音与麦克风权限的三种答案）、23（连点两下的真实挂起窗口）、24（一小时门槛的清扫扫描）。
 
+**还有一条只能真机看：把手机系统语言换成一种没覆盖的（法语/西语），首屏应当是英文。**
+机器守不住它：默认包不含中日韩文字这一条有结构守卫（`LocaleConfigMatchesResourcesTest`），
+但**解析层面**在 AVD 上量不到——`createConfigurationContext(fr)` 取到的英文是个常量：
+往源码里加一份真的 `values-fr/strings.xml`、再把 `fr` 注册进 `res/xml/locales_config.xml`、
+两个一起加，三次尝试都**没有**让它变成法语。改系统语言再截图也不行——那条命令在这台 AVD 上
+不传播到进程（`get-app-locales` 回读是 `[fr-FR]`，画面仍是中文），要验得连模拟器一起重启。
+
 
 ## 词典是怎么生成的
 
