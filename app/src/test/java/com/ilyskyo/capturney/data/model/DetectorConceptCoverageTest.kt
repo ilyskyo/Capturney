@@ -207,6 +207,55 @@ class DetectorConceptCoverageTest {
         )
     }
 
+    /**
+     * 概念层覆盖一条内置条目时，**不许让已经存在的字段消失**。
+     *
+     * `reload()` 的合并是 `entries[id] = 覆盖行`——整条替换，不是逐字段合并。所以覆盖行少写一个
+     * `ipa`，卡片上的注音就没了；少写一种 `words`，那一种语言拿到的背面跟着没。
+     * 2026-10-09 我覆盖 `en.teddy` 时就把 `/tedi/` 弄丢了（`en.remote`、`en.sink` 同一次），
+     * 而**没有任何一条断言会因此变红**：注音不在任何守卫的射程里，界面也照常显示，
+     * 只是那行音标再也出不来。
+     *
+     * 这里比的是**存在性**而不是值——覆盖的本意就是改值。
+     */
+    @Test
+    fun aConceptOverrideNeverLosesAFieldTheBuiltinRowHad() {
+        val builtin = json.decodeFromString(LexiconFile.serializer(), File(dir, "en.json").readText(Charsets.UTF_8))
+            .entries.associateBy { it.id }
+        val overrides = json.decodeFromString(LexiconFile.serializer(), File(dir, "concepts.json").readText(Charsets.UTF_8))
+            .entries.map { it.id }.filter { it in builtin }
+        assertTrue(
+            "概念层一条内置 id 都没覆盖（读到 ${overrides.size} 条）——那这条守卫就是空转",
+            overrides.isNotEmpty(),
+        )
+
+        val lost = buildList {
+            for (id in overrides) {
+                val before = builtin[id]!!
+                val after = index.byId(id)
+                if (after == null) {
+                    add("$id 合并之后整个不见了")
+                    continue
+                }
+                for (tag in before.words.keys) {
+                    val kept = after.words[tag]?.takeIf { it.isNotBlank() }
+                        ?: after.glosses[tag]?.takeIf { it.isNotBlank() }
+                    if (kept == null) add("$id 覆盖后 words[$tag] 与 glosses[$tag] 都空了（原来「${before.words[tag]}」）")
+                }
+                for (tag in before.ipa.keys) {
+                    if (after.ipa[tag].isNullOrBlank()) add("$id 覆盖后丢了 ipa[$tag]（原来 ${before.ipa[tag]}）")
+                }
+                if (before.example != null && after.example == null) add("$id 覆盖后丢了例句")
+                if (before.emoji != null && after.emoji == null) add("$id 覆盖后丢了 emoji")
+            }
+        }
+        assertTrue(
+            "概念层把内置数据改少了：\n${lost.joinToString("\n")}\n" +
+                "覆盖是替换而不是合并，所以每一行都要把自己要保留的字段重新写一遍",
+            lost.isEmpty(),
+        )
+    }
+
     private companion object {
         const val WHOLE_LABEL_FLOOR = 0.95f
 
@@ -229,6 +278,16 @@ class DetectorConceptCoverageTest {
             "hydrant" to Pinned("en.hydrant", "消火栓"),
             "tie" to Pinned("en.tie", "领带"),
             "glass" to Pinned("en.glass", "玻璃杯"),
+            // 下面三条是 2026-10-09 同一轮读表里剩下的那三个：它们在 ECDICT 的**自己那一行**里
+            // 没有可取的名词正解（`laptop` 整行只有 `[计] 膝上型的`、`remote` 只有 `a. 遥远的…`、
+            // `sink` 的首义项是「藏垢的场所」），所以在概念层覆盖。
+            // 中文三个值都是**同表其他词头里的原词**（`lap top`/`notebooks`、`telecontroller`、
+            // `kitchen sink`）；日语韩语一条都没新写——注音层里本来就有
+            // `ノートパソコン` / `노트북` / `リモコン` / `리모컨` / `洗面台` / `세면대`，
+            // 而我最初写的 ja/ko 被「同一语言两个来源不许分歧」那条守卫当场拦下（见 GlossOverlayCoverageTest）。
+            "laptop" to Pinned("en.laptop", "电脑"),
+            "remote" to Pinned("en.remote", "遥控"),
+            "sink" to Pinned("en.sink", "池"),
         )
 
         /** 带空格的类别：修之前它们全会掉到组成词上。 */

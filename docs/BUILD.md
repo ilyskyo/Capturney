@@ -28,7 +28,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 ```bash
 ./gradlew assembleDebug          # debug APK，applicationId 带 .debug 后缀
 ./gradlew installDebug           # 装到已连接的设备
-./gradlew testDebugUnitTest      # 369 个 JVM 单测，约半分钟（数量会漂，要准的看 app/build/test-results/）
+./gradlew testDebugUnitTest      # 370 个 JVM 单测，约半分钟（数量会漂，要准的看 app/build/test-results/）
 ./gradlew connectedDebugAndroidTest   # 33 个设备测试（2026-10-08 在 wl-ci 上全量跑过），
                                      # 要有一台已连着的设备/AVD，约 2 分钟
 ./gradlew assembleRelease        # R8 + shrinkResources + lintVitalRelease
@@ -554,11 +554,25 @@ python3 tools/build_lexicon.py ecdict.csv --out app/src/main/assets/lexicon/en.j
 再对已发布那份做定点替换（13055 条不变、13052 条按原键序逐字节相同）；
 最后再跑一次生成器比对，已发布条目与生成结果**零差异**。
 
-**还欠三条，而且不是规则能给的那种**：`laptop`（整行只有 `[计] 膝上型的`，没有名词正解）、
-`remote`（`a. 遥远的…` + `[计] 远程`，拍到的那个是遥控器）、`sink`（首义项「藏垢的场所」，
-后面的「沟渠, 污水槽」也都不是厨房那个盆）。这三条要的是**人撰写**的释义（机翻已被允许，
-但那样就不再是「取自 ECDICT 原词」，`THIRD_PARTY_NOTICES.md` 里概念层的措辞要跟着改），
-所以留到这里而没有顺手填。判据没变：值要么能在原词里核到，要么明确标成人写的。
+同一天剩下的那三条也补上了，但**补法不一样，出处必须分开记**：`laptop`（整行只有
+`[计] 膝上型的`）、`remote`（`a. 遥远的…` + `[计] 远程`）、`sink`（首义项「藏垢的场所」，
+后面的「沟渠, 污水槽」也不是厨房那个盆）在**自己那一行**里没有可取的名词正解，
+所以走 `concepts.json` 覆盖而不是 `PRIMARY_SENSES`。
+
+- 中文三个值仍然逐字来自同一份 ECDICT，只是挂在兄弟词头下：`笔记本电脑` 出自
+  `lap top` / `notebooks`，`遥控器` 出自 `telecontroller`，`洗涤池` 出自 `kitchen sink`
+  （那一行全文是「厨房洗涤池, 激进现实主义」，取前半）。跨词头引用不是变通——
+  它是同一份 MIT 数据里的原词。
+- **这三行只覆盖 `zh`，日语韩语一个都没新写。** 我一开始给它们各写了 ja/ko，
+  `GlossOverlayCoverageTest` 那条「同一语言的两个来源不许分歧」当场拦下来并点到 id：
+  `en.sink words.ja=シンク 注音层=洗面台`——而注音层里 `en.laptop` / `en.remote` 早就带着
+  `ノートパソコン` / `노트북` / `リモコン` / `리모컨`，正是我要写的那些。
+  所以「这条需要撰写」的判断本身是错的：需要的只是修中文，其余两语**早就有了**。
+- `sink` 的语义在各层之间不一致，记在这里而不是假装没有：注音层给的是 `洗面台` / `세면대`
+  （洗脸盆），中文取了涵盖厨房与浴室的 `洗涤池`；厨房那个具体物件在 ECDICT 里是另一个词头
+  `kitchen sink = 厨房洗涤池`。将来若要在词片层面分厨房/浴室，要指认的是那个词头。
+
+判据没变：**值要么在原词里核到（可以换词头），要么不写**。这次的答案是连「撰写」都不需要。
 
 两处筛选口径在 2026-10-08 放宽过，别再改回去，它们挡的是真实缺陷：
 

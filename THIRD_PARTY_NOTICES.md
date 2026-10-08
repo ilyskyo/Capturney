@@ -57,18 +57,30 @@ with the fonts, hence `third_party/fonts/`.
 |---|---|
 | Source | [Wikidata](https://www.wikidata.org/) item labels, retrieved by `tools/fetch_wikidata.py` against `www.wikidata.org/w/api.php` |
 | Licence | **CC0** — Wikidata releases its content without copyright restrictions, so no attribution clause travels with this data |
-| Extent | 199 ja + 199 ko gloss values (the two files cover the identical id set by design), and the 14 entries of `concepts.json` |
+| Extent | 199 ja + 199 ko gloss values (the two files cover the identical id set by design), and the 18 entries of `concepts.json` |
 | How it is used | Labels only, never descriptions or aliases. The English→entity mapping is either matched by the documented category rules or, for compound nouns, read from the hand-curated `tools/gloss-qids.tsv`; the tool then fetches the CC0 label and applies a script check. |
 
-`concepts.json` marks its 14 rows `"source": "manual"`, and that is exactly right: **a human picked
-the entity**, the tool still fetched the text. The two-layer provenance is deliberate and is the
-reason the automatic-disambiguation rules were dropped rather than tuned — see `docs/BUILD.md`.
+`concepts.json` rows are marked `"source": "manual"`. That word covers three different things, and
+they are separated here because a notice that says "a human chose it" without saying where the words
+came from is only half a notice:
 
-**No machine-translated text is in this repository.** The project's maintainer lifted an earlier
-ban on machine translation for dictionary content, so the question is a live one and the answer
-should be recorded rather than inferred: `tools/` contains no translation backend of any kind
-(no MT API, no LLM call, no `translate` path), and `fetch_wikidata.py` takes label strings as they
-are. Every non-English word on a card back is therefore a Wikidata label or a human-supplied value.
+| Which text | Where it comes from |
+|---|---|
+| `en` headwords and the English entity choice | A human picked the referent (`tools/gloss-qids.tsv`); `tools/fetch_wikidata.py` then retrieved the CC0 label |
+| `ja` / `ko` in `gloss-ja.json`, `gloss-ko.json`, and most `concepts.json` rows | **Wikidata item labels**, CC0 |
+| `zh` in `concepts.json` | Verbatim ECDICT text — sometimes quoted from a sibling headword rather than the row's own (e.g. `遥控器` from the `telecontroller` row, `笔记本电脑` from `lap top`/`notebooks`, `洗涤池` from `kitchen sink`), because those rows carry no usable noun gloss of their own |
+
+**No `ja`/`ko` value in this repository was written by a human or by a translation service.**
+The three rows above needed only their Chinese fixed: the Japanese and Korean labels for those
+ids were already in the CC0 overlay layer (`gloss-ja.json` / `gloss-ko.json` — `ノートパソコン`,
+`노트북`, `リモコン`, `리모컨`, `洗面台`, `세면대`). A draft of that change did author new `ja`/`ko`
+strings; `GlossOverlayCoverageTest`'s "two sources must not disagree for one language" assertion
+caught it and said so by id (`en.sink words.ja=シンク 注音层=洗面台`), which is the reason those
+rows now override `zh` only. That check is why the notice can be stated as a fact rather than
+an intention.
+
+There is also no translation backend anywhere in `tools/` — no MT API, no LLM call, no
+`translate` path — verified by grep over the tooling, not remembered.
 
 ---
 
@@ -106,7 +118,7 @@ every device. The reasoning lives in `docs/PRODUCT_SPEC.md` §5 and §8.
 
 ---
 
-## Fonts and icons are original
+## Bundled fonts and icons are original
 
 The fourteen icons in `ui/icons/CapturneyIcons.kt` are hand-authored geometric `ImageVector`s. They
 contain no third-party icon geometry, and `androidx.compose.material:material-icons-extended` is

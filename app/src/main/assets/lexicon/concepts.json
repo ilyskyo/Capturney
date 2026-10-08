@@ -13,5 +13,8 @@
 {"id":"en.hot_dog","words":{"en":"hot dog","zh":"热狗","ja":"ホットドッグ","ko":"핫도그"},"glosses":{"zh":"热狗","ja":"ホットドッグ","ko":"핫도그"},"labelAliases":["hot dog","hot dogs","hotdog"],"frequency":0,"source":"manual"},
 {"id":"en.teddy_bear","words":{"en":"teddy bear","zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"glosses":{"zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"labelAliases":["teddy bear","teddy bears"],"frequency":0,"source":"manual"},
 {"id":"en.hair_drier","words":{"en":"hair drier","zh":"吹风机","ja":"ヘアドライヤー","ko":"헤어 드라이기"},"glosses":{"zh":"吹风机","ja":"ヘアドライヤー","ko":"헤어 드라이기"},"labelAliases":["hair drier","hair dryer","hair driers","hair dryers"],"frequency":0,"source":"manual"},
-{"id":"en.teddy","words":{"en":"teddy","zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"glosses":{"zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"labelAliases":["teddy","teddies","teddy bear"],"frequency":10084,"source":"manual"}
+{"id":"en.teddy","words":{"en":"teddy","zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"ipa":{"en":"/tedi/"},"glosses":{"zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"labelAliases":["teddy","teddies","teddy bear"],"frequency":10084,"source":"manual"},
+{"id":"en.laptop","words":{"en":"laptop","zh":"笔记本电脑"},"glosses":{"zh":"笔记本电脑"},"labelAliases":["laptop","laptop computer"],"frequency":5866,"source":"manual"},
+{"id":"en.remote","words":{"en":"remote","zh":"遥控器"},"ipa":{"en":"/ri'mәut/"},"glosses":{"zh":"遥控器"},"labelAliases":["remote","remote control"],"frequency":2684,"source":"manual"},
+{"id":"en.sink","words":{"en":"sink","zh":"洗涤池"},"ipa":{"en":"/siŋk/"},"glosses":{"zh":"洗涤池"},"labelAliases":["sink","kitchen sink"],"frequency":2585,"source":"manual"}
 ]}
