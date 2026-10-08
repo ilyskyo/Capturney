@@ -182,6 +182,15 @@ fun VoiceMemoSection(
      */
     LaunchedEffect(askPermission, permission) {
         if (!askPermission) return@LaunchedEffect
+        // 这台设备没有麦克风就别去问权限：那一次授权永远不会带来能录音的硬件，
+        // 用户答完「允许」之后还得再按一次键才知道机器不行。直接走开录那一步，
+        // 让 VoiceRecorder 当场把话说出口（TakeStart.NO_MIC），
+        // 而它返回在 newRecorder() 之前——所以磁盘上也不会留下半截文件。
+        if (!context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_MICROPHONE)) {
+            askPermission = false
+            actions.onStartTake(entryId)
+            return@LaunchedEffect
+        }
         when (permission) {
             MicPermission.GRANTED -> {
                 askPermission = false

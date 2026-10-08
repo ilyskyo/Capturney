@@ -190,9 +190,15 @@ fun CaptureScreen(
             }
         },
     )
-    val granted = cameraGranted ?: (permissionTick >= 0 &&
+    // 没有相机硬件的设备上，权限那一扇门**根本不是重点**：授权永远不会让取景器出现。
+    // 所以这里直接放行到主布局，由 CaptureCamera 去说「这台设备的相机用不了」并把快门灰掉
+    // （`viewfinderDown` 那条路已经建好，缺的就是这个短路）。
+    // 少了这一行的时候，这条路径上是「需要相机权限」+ 一颗**点了永远不会有变化**的授权键——
+    // 那和一颗按下去没反应的快门是同一种东西，只是把用户多引到了一次不可能的授权上。
+    val cameraAbsent = !context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
+    val granted = cameraAbsent || (cameraGranted ?: (permissionTick >= 0 &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-        PackageManager.PERMISSION_GRANTED)
+        PackageManager.PERMISSION_GRANTED))
 
     Box(modifier = modifier) {
         if (!granted) {
