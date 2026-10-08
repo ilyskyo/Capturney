@@ -121,10 +121,15 @@ class SourceStructureDocTest {
                 .find(xml.readText(Charsets.UTF_8))?.groupValues?.get(1)
             assertTrue("${label}的 wl_background 读不到，量具有问题", declared != null)
             // 允许写 #RRGGBB 或 #AARRGGBB 两种形式，尾数不同不算错。
-            val bare = declared!!.removePrefix("FF").take(6)
+            // 报错里必须打**完整原值**：上一版把 `#FFFBF7` 显示成 `#FBF7`
+            // （removePrefix("FF").take(6) 把 alpha 段一起吃掉了），
+            // 而一个说错数字的报错比没有报错更坏——读的人会去核一个根本不存在的颜色。
+            val full = declared!!
+            val tail = if (full.startsWith("FF")) full.substring(2) else full
             assertTrue(
-                "§9.1 的 Background 行没有写出${label}真正在用的 #$bare（themes/小组件/冷启动都读它）",
-                section.contains("#$bare", ignoreCase = true) || section.contains(declared, ignoreCase = true),
+                "§9.1 的 Background 行没有写出" + "${label}真正在用的 #" + full +
+                    "（themes / 小组件 / 冷启动都读它）",
+                section.contains("#$tail", ignoreCase = true) || section.contains("#$full", ignoreCase = true),
             )
         }
     }
