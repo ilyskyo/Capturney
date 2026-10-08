@@ -36,8 +36,11 @@ class GlossOverlayCoverageTest {
 
     @Test
     fun everyOverlayIdStillResolvesToAnEntryInTheShippedLexicon() {
-        val known = objectList("en.json").map { it.string("id") }.toSet()
-        assertTrue("en.json 只解析出 ${known.size} 个 id，解析器大概瞎了", known.size >= 10_000)
+        // 词典是三层叠出来的：`en.json`（ECDICT）+ `concepts.json`（复合概念，如 traffic light）。
+        // 只拿 en.json 当合法 id 集的话，给概念词加注音就会被这条误报成孤儿——刚才注入
+        // `en.traffic_light` 时它就是这么红的，而那本来是一条合法的补丁。
+        val known = (objectList("en.json") + objectList("concepts.json")).map { it.string("id") }.toSet()
+        assertTrue("内置两层只解析出 ${known.size} 个 id，解析器大概瞎了", known.size >= 10_000)
 
         for (lang in LANGS) {
             val orphans = objectList("gloss-$lang.json").map { it.string("id") }.filterNot { it in known }
@@ -54,8 +57,44 @@ class GlossOverlayCoverageTest {
         val byLang = LANGS.associateWith { lang -> objectList("gloss-$lang.json").map { it.string("id") }.toSet() }
         val ja = byLang.getValue("ja")
         val ko = byLang.getValue("ko")
-        assertTrue("只在 ja 有的有 ${(ja - ko).size} 个：${(ja - ko).take(8)}", (ja - ko).size <= TOLERANCE)
-        assertTrue("只在 ko 有的有 ${(ko - ja).size} 个：${(ko - ja).take(8)}", (ko - ja).size <= TOLERANCE)
+        // 容差原来是 40：那是「维基数据总有一个语言缺标签」的旧现实。现在 `write_outputs`
+        // 只会发**两种语言都齐**的词（只有一边的直接挡下），而手工那批也已经补齐，
+        // 所以 0 是做得到的标准——留着 40 就等于默许 40 个韩语用户拿到英文背面。
+        assertTrue("只在 ja 有的有 ${(ja - ko).size} 个：${(ja - ko).take(8)}。背面不能一种语言有一种语言没有",
+            (ja - ko).isEmpty())
+        assertTrue("只在 ko 有的有 ${(ko - ja).size} 个：${(ko - ja).take(8)}。背面不能一种语言有一种语言没有",
+            (ko - ja).isEmpty())
+    }
+
+    @Test
+    fun theOverlayNeverDisagreesWithTheSameLanguageHeadword() {
+        // 同一门语言的值有两个来源：`en.json`/`concepts.json` 里的 `words.ja`，和 `gloss-ja.json`
+        // 这一层。读端按「内置 → 概念 → 注音层」合并，所以两边不一致时**哪一个被显示出来
+        // 取决于合并顺序**——这种顺序依赖迟早会变成「我明明改了，卡片上还是旧的」。
+        // 现在两边是不相交的（concepts.json 那 14 条概念词没有注音层条目），所以断言的是
+        // 「不许出现分歧」而不是「谁赢」。
+        val headwords = LANGS.associateWith { lang ->
+            buildMap {
+                for (name in listOf("en.json", "concepts.json")) {
+                    for (entry in objectList(name)) {
+                        val value = (entry["words"] as? JsonObject)?.get(lang)?.jsonPrimitive?.content
+                        if (!value.isNullOrBlank()) put(entry.string("id"), value)
+                    }
+                }
+            }
+        }
+        for (lang in LANGS) {
+            val overlay = objectList("gloss-$lang.json").associate { it.string("id") to it.string("word") }
+            val conflict = overlay.keys.intersect(headwords.getValue(lang).keys).mapNotNull { id ->
+                val head = headwords.getValue(lang).getValue(id)
+                if (head == overlay[id]) null else "$id words.$lang=$head 注音层=${overlay[id]}"
+            }
+            assertTrue(
+                "gloss-$lang 与 words.$lang 有 ${conflict.size} 条不一致：${conflict.take(6)}。" +
+                    "哪一行被显示出来现在取决于加载顺序，这是迟早会咬人的反规范化",
+                conflict.isEmpty(),
+            )
+        }
     }
 
     @Test
@@ -109,10 +148,11 @@ class GlossOverlayCoverageTest {
     private companion object {
         val LANGS = listOf("ja", "ko")
 
-        /** 已知下限：这份补丁手工攒到了 157 条，留一点余量但不许塌回去。 */
-        const val MIN_ENTRIES = 150
-
-        /** ja/ko 允许差几个词——维基数据里总有一个语言缺标签。差得多了才是漏。 */
-        const val TOLERANCE = 40
+        /**
+         * 已知下限：手工那批 157 → 加上 `--qids` 与日历词之后是 199。
+         * 抬到 199 是要拦住「重生成时静默少带几十条」——那正是这份补丁手工攒出来、
+         * 却最容易被一次覆盖写回小版本号的那类丢失。条数只会往前走。
+         */
+        const val MIN_ENTRIES = 199
     }
 }
