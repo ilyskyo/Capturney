@@ -176,6 +176,19 @@ ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
   app/build/outputs/apk/release/app-release.apk | grep -A2 uses-permission
 ```
 
+**`aapt2 dump` 里会看到两个不在上表的名字，别被误导**：`android.permission.BIND_JOB_SERVICE`
+与 `android.permission.DUMP` 也出现在 dump 里，但它们是 WorkManager 自带的那两个 `JobService`
+上的**组件保护**（`android:permission="…"`，意思是「别的 App 绑不上来」），
+不是本应用**请求**的权限。上面这张表数的是 `<uses-permission>`，共 8 + 1 条；
+用 `grep -oE '"android\.permission\.[A-Z_]+"'` 之类的整文件抽取会得到 10 条，那是把两种语义混成了
+一种。要按元素数：`uses-permission` 那几个块里各取自己的 `android:name`。
+
+`FOREGROUND_SERVICE` 的删除还依赖一个前提，写在这里免得以后被悄悄破坏：
+`ReminderScheduler` 用的是普通 `PeriodicWorkRequestBuilder`（1 天 + 初始延迟），
+全仓库 `setExpedited` / `ContentConstraint` 出现 **0 次**。加急任务（API 31+）是需要
+`FOREGROUND_SERVICE` 的——哪天真要加急提醒，就得把这条声明连同 `foregroundServiceType`
+与用途说明一起加回来，而不是让它在运行时炸。
+
 ## 发布前收口：R8、mapping.txt 与数据可发现性冒烟
 
 ### 为什么这件事需要一个脚本守着
