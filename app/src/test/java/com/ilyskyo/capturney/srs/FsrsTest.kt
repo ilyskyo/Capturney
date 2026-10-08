@@ -272,6 +272,36 @@ class FsrsTest {
         }
     }
 
+    /**
+     * 四颗评分按钮的间隔必须从左到右越来越长。
+     *
+     * 参考实现算完四个 interval 后紧接着钳一次（`hard=min(hard,good)`、`good=max(good,hard+1)`、
+     * `easy=max(easy,good+1)`），因为 ±5% 抖动是每个间隔各自抽的：没有这一步，按「简单」
+     * 完全可能拿到比按「良好」更近的到期日。那既不会崩也不会进日志，但它违反的是这个界面
+     * 唯一承诺的东西——四个按钮写着越来越长的间隔。
+     *
+     * 种子是遍历出来的而不是随机一次：要的是「有没有哪一种抖法会翻车」这个答案可复现。
+     */
+    @Test
+    fun scheduledIntervalsStayMonotonicForEveryFuzzDraw() {
+        val state = learnedState()
+        var crossed = 0   // 供失败时统计用
+        for (seed in 0 until 400) {
+            val iv = Fsrs.scheduledIntervals(state, t0, kotlin.random.Random(seed))
+            val hard = iv.getValue(Fsrs.Rating.HARD)
+            val good = iv.getValue(Fsrs.Rating.GOOD)
+            val easy = iv.getValue(Fsrs.Rating.EASY)
+            if (hard > good || easy <= good) crossed += 1
+            assertTrue(
+                "seed=$seed 时按钮顺序被抖动打乱了：hard=$hard good=$good easy=$easy。" +
+                    "用户点最右边那颗却拿到不比中间那颗长的间隔",
+                hard <= good && easy > good,
+            )
+        }
+        // crossed 只用于把「有多少种子会翻车」显示在失败消息里；
+        // 真正的守卫是循环里那条按种子断言的 assertTrue。
+    }
+
     /** 一张已经被复习过、有稳定性的卡：预览间隔只有在这种状态下才有意义。 */
     private fun learnedState(): Fsrs.State {
         var state = Fsrs.State()

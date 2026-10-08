@@ -176,9 +176,18 @@ object Fsrs {
     }
 
     /** Apply a review and return the next state. The caller persists it. */
-    fun review(state: State, rating: Rating, now: Long = System.currentTimeMillis()): State {
+    fun review(state: State, rating: Rating, now: Long = System.currentTimeMillis()): State =
+        review(state, rating, now, rng)
+
+    /**
+     * [review] with the jitter source injected. Not a test-only convenience: without a seam here,
+     * the monotonicity clamp below cannot be demonstrated to work, because a passing run and a
+     * failing one differ only by which random fuzz offsets came up.
+     */
+    internal fun review(state: State, rating: Rating, now: Long, random: Random): State {
+        val next = scheduledIntervals(state, now, random)
+        val days = next.getValue(rating)
         val (d, s) = evolve(state, rating, now)
-        val days = intervalForStability(s, fuzz = true)
         return State(
             difficulty = d,
             stability = s,
@@ -187,6 +196,29 @@ object Fsrs {
             reviewCount = state.reviewCount + 1,
             lapses = state.lapses + if (rating == Rating.AGAIN) 1 else 0,
         )
+    }
+
+    /**
+     * The interval each grade will actually be scheduled with, fuzz included and **made monotonic**.
+     *
+     * 参考实现（fsrs4anki_scheduler.js）在算完四个 interval 之后紧接着做：
+     * `hard = min(hard, good)`、`good = max(good, hard + 1)`、`easy = max(easy, good + 1)`。
+     * 这一步是必需的，因为 ±5% 抖动是各自独立抽的：不加钳制，按「简单」可能被抖得比按「良好」还短。
+     * 那正是这个界面唯一的承诺——四个按钮从左到右越来越长。缺了它，用户点最右边那颗
+     * 却拿到比中间那颗更近的到期日，而这既不会崩也不会进日志。
+     */
+    internal fun scheduledIntervals(state: State, now: Long, random: Random): Map<Rating, Int> {
+        val raw = Rating.entries.associateWith { rating ->
+            intervalForStability(evolve(state, rating, now).second, fuzz = true, random = random)
+        }
+        val again = raw.getValue(Rating.AGAIN)
+        var hard = raw.getValue(Rating.HARD)
+        var good = raw.getValue(Rating.GOOD)
+        var easy = raw.getValue(Rating.EASY)
+        hard = min(hard, good)
+        good = max(good, hard + 1)
+        easy = max(easy, good + 1)
+        return mapOf(Rating.AGAIN to again, Rating.HARD to hard, Rating.GOOD to good, Rating.EASY to easy)
     }
 
     /** Shortest interval this configuration would ever schedule, used to warn about absurd retention settings. */
@@ -253,9 +285,9 @@ object Fsrs {
         return round2(s * sinc).coerceAtLeast(MIN_STABILITY)
     }
 
-    private fun intervalForStability(stability: Double, fuzz: Boolean): Int {
+    private fun intervalForStability(stability: Double, fuzz: Boolean, random: Random = rng): Int {
         val raw = stability / factor * (requestRetention.pow(1.0 / decay) - 1)
-        val value = if (fuzz) applyFuzz(raw) else raw
+        val value = if (fuzz) applyFuzz(raw, random) else raw
         return value.roundToInt().coerceIn(1, MAX_INTERVAL_DAYS)
     }
 
@@ -263,12 +295,12 @@ object Fsrs {
      * ±5% jitter, applied only once the interval is long enough that identical intervals
      * would pile every card up on the same future day.
      */
-    private fun applyFuzz(interval: Double): Double {
+    private fun applyFuzz(interval: Double, random: Random = rng): Double {
         if (interval < 2.5) return interval
         val ivl = interval.roundToInt()
         val minIvl = max(2.0, (ivl * 0.95 - 1).roundToInt().toDouble())
         val maxIvl = (ivl * 1.05 + 1).roundToInt().toDouble()
-        return floor(rng.nextDouble() * (maxIvl - minIvl + 1) + minIvl)
+        return floor(random.nextDouble() * (maxIvl - minIvl + 1) + minIvl)
     }
 
     private fun nextDifficulty(currentD: Double, rating: Rating): Double {
