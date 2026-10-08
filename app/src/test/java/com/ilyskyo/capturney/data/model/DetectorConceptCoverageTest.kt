@@ -222,6 +222,13 @@ class DetectorConceptCoverageTest {
 
         val PINNED_SINGLE_LABELS = mapOf(
             "teddy" to Pinned("en.teddy", "熊"),
+            // 这三条不是「哪个条目」的问题——条目一直是对的，是**同一个名词块里取了第一个义项**，
+            // 而拍照时看到的东西对应的是块里后面那个：街边红色的那个是消火栓不是给水设施，
+            // 人身上那条是领带不是带子，桌上的那只是玻璃杯不是材料玻璃。
+            // 2026-10-09 逐条读完相机可见的 93 个词时找出来，值同时进 PRIMARY_SENSES 与 en.json。
+            "hydrant" to Pinned("en.hydrant", "消火栓"),
+            "tie" to Pinned("en.tie", "领带"),
+            "glass" to Pinned("en.glass", "玻璃杯"),
         )
 
         /** 带空格的类别：修之前它们全会掉到组成词上。 */
