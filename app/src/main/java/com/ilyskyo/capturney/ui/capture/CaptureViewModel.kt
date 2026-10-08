@@ -178,7 +178,23 @@ class CaptureViewModel(private val container: AppContainer) : ViewModel() {
             Log.w(TAG, "sensor active array unavailable; chips disabled")
         }
         rotationDegrees = ctrl.sensorRotation
+        _ui.update { it.copy(viewfinderDown = false) }
         publishFrame()
+    }
+
+    /**
+     * 取景器不会再来了：这台设备没有相机硬件，或绑定失败（被占用、provider 起不来）。
+     *
+     * 必须由 [CaptureCamera] 报上来而不是只写一行日志。清单里 `camera.any` 是
+     * `required="false"`，所以无相机的平板真的会装上也真的会走到这一页——
+     * 那时候屏幕上留下的应该是一句说明和一颗明确灰掉的快门，不是一个看起来能按的取景框。
+     */
+    fun onCameraUnavailable() {
+        controller = null
+        imageCapture = null
+        _ui.update {
+            it.copy(viewfinderDown = true, chips = emptyList(), ambience = emptyList(), selectedChipKey = null)
+        }
     }
 
     fun onCameraReleased() {

@@ -96,6 +96,19 @@ data class CaptureUiState(
      * 知道自己那件事在不在跑，才能把图标换成进度环、把上面那句话说成「正在读这张照片」。
      */
     val importing: Boolean = false,
+    /**
+     * 取景器不会来了：这台设备没有相机硬件，或者绑定失败（被别的 App 占着、provider 起不来）。
+     *
+     * 存在的理由是**快门不能假装能按**。清单里 `camera.any` 写的是 `required="false"`，
+     * 意思是无相机的平板也要能装上并走完牌组、复习、相册导入、手写词那几条路——
+     * 而以前的做法是绑定失败只写一行 `Log.w`，屏幕上留下一个看起来完好的取景页，
+     * 快门按下去什么也不发生。一个按下去没反应的快门比没有这颗键更糟：
+     * 用户只会以为自己按错了，永远不会知道是这台机器不行。
+     *
+     * 不复用 [analysing]：那一档说的是「正在算这一帧」，几十毫秒就回来；
+     * 这一档是「不会再有帧了」，两者的可撤销性完全不同。
+     */
+    val viewfinderDown: Boolean = false,
     /** 抠图结果。null 表示还在取景或分析中。 */
     val sticker: Bitmap? = null,
     val headword: String? = null,
@@ -419,6 +432,9 @@ private fun CaptureBottomControls(
         // 这条二分是整个产品的骨架，不该让用户猜。
         val selectedWord = state.chips.firstOrNull { it.key == state.selectedChipKey }?.word
         val hint = when {
+            // 没有取景器时这句话排第一，而且它**不该是可点的**：底下那条「手动抠一个东西」
+            // 靠的是当前这一帧，而这一帧永远不会来。
+            state.viewfinderDown -> stringResource(R.string.capture_no_viewfinder)
             // 导入在跑的时候这句话优先：那一刻用户唯一想知道的就是「这一下有没有在动」。
             state.importing -> stringResource(R.string.capture_importing)
             selectedWord != null -> stringResource(R.string.capture_selected_hint, selectedWord)
@@ -439,7 +455,7 @@ private fun CaptureBottomControls(
                     .then(
                         // 没有任何词片时才把提示本身做成按钮（走手动抠主流）；
                         // 有词片时选择靠点词片完成，提示只是陈述。
-                        if (selectedWord == null && state.chips.isEmpty() && !state.importing) {
+                        if (selectedWord == null && state.chips.isEmpty() && !state.importing && !state.viewfinderDown) {
                             Modifier.pressable(onClick = onTapSubject)
                         } else {
                             Modifier
@@ -456,7 +472,7 @@ private fun CaptureBottomControls(
             // 快门仍然在正中央。相册入口是同一个动作的另一个来源，不该把主角挤离位置。
             Spacer(Modifier.size(IMPORT_BUTTON))
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                ShutterButton(enabled = !state.analysing, onClick = onShutter)
+                ShutterButton(enabled = !state.analysing && !state.viewfinderDown, onClick = onShutter)
             }
             GalleryImportButton(
                 enabled = !state.analysing,

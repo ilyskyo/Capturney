@@ -4,6 +4,7 @@
 package com.ilyskyo.capturney.ui.capture
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.util.Log
 import android.util.Size
 import androidx.camera.core.CameraSelector
@@ -79,6 +80,13 @@ fun CaptureCamera(
     }
 
     LaunchedEffect(lifecycleOwner, previewView, analysisExecutor) {
+        // 先问硬件再谈权限：清单里 `camera.any` 是 required="false"，所以无相机的平板装得上、
+        // 也真的会走进这一页。那种机器上 CameraX 会一路走到 bindToLifecycle 才抛，
+        // 而那时用户已经看到一帧一帧的纯黑——不如一开始就告诉他这里没有镜头。
+        if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
+            viewModel.onCameraUnavailable()
+            return@LaunchedEffect
+        }
         try {
             val provider = context.awaitCameraProvider()
             provider.unbindAll()
@@ -118,8 +126,10 @@ fun CaptureCamera(
             viewModel.onCameraReady(camera, capture)
         } catch (e: Exception) {
             // 相机被别的 App 占用、无后摄、provider 初始化失败——都降级为「没有取景器」，
-            // 页面外壳仍然能显示权限说明，而不是崩。
+            // 页面外壳仍然能显示权限说明，而不是崩。降级必须**报到 state 里**：
+            // 只写日志的话屏幕上是一颗按下去没反应的快门，而用户只会以为自己按错了。
             Log.w(TAG, "camera bind failed", e)
+            viewModel.onCameraUnavailable()
         }
     }
 

@@ -81,6 +81,7 @@
     <!-- 앨범 가져오기: 촬영과 같은 순서를 거치므로 알림은 「이번에 무엇이 빠졌는지」만 말합니다 -->
     <string name="capture_import">앨범에서 가져오기</string>
     <string name="capture_importing">사진을 읽는 중 · 인식과 오려내기도 촬영과 같은 순서로 진행돼요</string>
+    <string name="capture_no_viewfinder">이 기기의 카메라를 쓸 수 없어요 · 앨범에서 가져오거나 단어를 직접 입력하세요</string>
     <string name="import_unreadable">이 사진은 읽을 수 없어서 기록에 저장하지 않았어요</string>
     <string name="import_no_detection">지금 이 기기는 물체를 인식할 수 없어서, 사진만 그대로 기록에 저장했어요. 단어는 붙지 않아요</string>
     <string name="import_no_objects">이 사진에서는 아무것도 찾지 못했어요. 사진 전체를 기록에 저장했어요</string>

@@ -308,6 +308,16 @@ CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前
     而不是每次都发一个系统不会再答的 request。永久拒绝的判别只能在用户答过之后做
     （第一次进这一页时 `shouldShowRequestPermissionRationale` 也是 false）。
     没有麦克风的机器（平板）要能装上、其余功能照常：`microphone` 声明的是 `required=false`。
+    **这一句现在只是「装得上」，不是「说得清」**：全仓库运行时只查了 `FEATURE_CAMERA_ANY`，
+    没查过麦克风在不在，所以无麦克风的设备按下「录一段」会拿到 `TakeNotice.FAILED` 那句通用失败，
+    而不是「这台设备没有麦克风」。要补的是 `core/voice/VoiceMemo.kt` 那一台状态机
+    （加一档要连着改迁移表与四语文案），`OptionalHardwareFeatureTest` 把这笔欠账钉在了名单里。
+    **同族的另一件硬件——无相机的设备**（2026-10-08 已接进代码，但没在真机上看过）：清单声明
+    `camera.any required=false`，而取景页以前在绑定失败时只写一行 `Log.w`，留下一颗
+    按下去什么都不会发生的快门。现在 `CaptureCamera` 先问 `hasSystemFeature`、绑定失败也上报，
+    快门变灰并在它上方出现 `capture_no_viewfinder` 那句（四语都有），指向仍然走得通的
+    相册导入与手写词。**这一条只能在无相机的真机（或关掉相机的 Android 12+ 设备）上确认画面**：
+    要看的是那句是不是完整不截断、快门是不是明显灰掉、而相册那颗键**照旧能按**。
 17. **重录必须问一次**：已经有声音的那条按「重录」，要先出现「会换掉原来那段」的确认，
     确认之后才动旧的——文件名按条目 id 定死，新的那一段是**截断重写**，旧的没掉之前必须有过同意。
     顺序也要紧：确认之后权限没到手时不能先摘 `audioPath`，否则「点了同意 → 被拒 → 旧的没了 →

@@ -86,6 +86,9 @@
     <!-- 相册导入：与拍照同一条流水线，所以提示只讲这次少了什么 -->
     <string name="capture_import">Import from gallery</string>
     <string name="capture_importing">Reading that photo · detection and cut-out run the same way as a shot</string>
+    <!-- 取景器不会再来了。这一句要同时兼容两种成因（这台设备没有镜头 / 镜头正被别的 App 占着），
+         所以说的是「用不了」而不是「没有」——说成「没有相机」在后一种情况下就是撒谎。 -->
+    <string name="capture_no_viewfinder">This device\'s camera isn\'t available · import a photo or write a word instead</string>
     <string name="import_unreadable">That photo could not be read, so nothing was saved</string>
     <string name="import_no_detection">This device cannot run detection right now — the photo went into Moments whole, with no words on it</string>
     <string name="import_no_objects">Nothing was recognized in that photo — it went into Moments as a whole picture</string>
