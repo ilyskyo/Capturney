@@ -233,6 +233,24 @@ class LexiconFieldShapeTest {
         )
     }
 
+    @Test
+    fun chineseHeadwordAndChineseGlossAreTheSameString() {
+        // 生成器里这两个字段本来就是同一个值（`words = {en, zh: gloss}`），
+        // 所以它们一旦分开就说明有人改了其中一个。这不是洁癖：`words.zh` 是**搜索匹配用的词头**，
+        // `glosses.zh` 是卡片背面那行。我只改过一个字段，于是 206 条留下这样的鬼影：
+        // 背面写着「向下的」，但搜「丘陵」还能命中 down。
+        val split = entries.mapNotNull { entry ->
+            val head = (entry["words"] as? JsonObject)?.get("zh")?.jsonPrimitive?.content
+            val gloss = (entry["glosses"] as? JsonObject)?.get("zh")?.jsonPrimitive?.content
+            if (head == gloss) null else "${entry.headword()} words.zh=${head ?: "(无)"} glosses.zh=${gloss ?: "(无)"}"
+        }
+        assertTrue(
+            "有 ${split.size} 条的中文词头与中文释义不一致：${split.take(6)}。" +
+                "搜索页用前者、卡片用后者，不一致就等于留下搜得到的旧义项",
+            split.isEmpty(),
+        )
+    }
+
     private fun JsonObject.headword(): String = getValue("words").jsonObject.getValue("en").jsonPrimitive.content
 
     private fun JsonObject.motherTongueGloss(): String? =
