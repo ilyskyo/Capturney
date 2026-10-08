@@ -49,6 +49,26 @@ with the fonts, hence `third_party/fonts/`.
 | Source | [ECDICT](https://github.com/skywind3000/ECDICT) by the ECDICT authors |
 | Licence | MIT |
 | How it is used | Not vendored. `tools/build_lexicon.py` reads a locally downloaded `ecdict.csv` and emits the shipped JSON; the generator is committed, the raw CSV is not. |
+| Extent | 13055 entries, every one of them carries `"source": "ECDICT"` in the shipped file. |
+
+### Japanese / Korean card-back glosses — `gloss-ja.json`, `gloss-ko.json`, `concepts.json`
+
+| | |
+|---|---|
+| Source | [Wikidata](https://www.wikidata.org/) item labels, retrieved by `tools/fetch_wikidata.py` against `www.wikidata.org/w/api.php` |
+| Licence | **CC0** — Wikidata releases its content without copyright restrictions, so no attribution clause travels with this data |
+| Extent | 199 ja + 199 ko gloss values (the two files cover the identical id set by design), and the 14 entries of `concepts.json` |
+| How it is used | Labels only, never descriptions or aliases. The English→entity mapping is either matched by the documented category rules or, for compound nouns, read from the hand-curated `tools/gloss-qids.tsv`; the tool then fetches the CC0 label and applies a script check. |
+
+`concepts.json` marks its 14 rows `"source": "manual"`, and that is exactly right: **a human picked
+the entity**, the tool still fetched the text. The two-layer provenance is deliberate and is the
+reason the automatic-disambiguation rules were dropped rather than tuned — see `docs/BUILD.md`.
+
+**No machine-translated text is in this repository.** The project's maintainer lifted an earlier
+ban on machine translation for dictionary content, so the question is a live one and the answer
+should be recorded rather than inferred: `tools/` contains no translation backend of any kind
+(no MT API, no LLM call, no `translate` path), and `fetch_wikidata.py` takes label strings as they
+are. Every non-English word on a card back is therefore a Wikidata label or a human-supplied value.
 
 ---
 
