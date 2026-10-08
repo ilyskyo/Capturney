@@ -15,6 +15,16 @@ apk-output/
 *.keystore
 !debug.keystore
 signing.properties
+# 上面那三条挡不住实际在用的两种密钥容器格式：*.jks 与 *.p12 曾经都能被 git add -A 收进来，
+# 而 release 密钥一旦推到公开仓库就等于永久失效（任何人都能签「同一个人的」更新包）。
+*.jks
+*.p12
+*.pfx
+# 万一有人按 BUILD.md 的旧写法把密钥目录放在仓库旁边，这一条兜住整目录。
+/keystore/
+# 口令文件只锚在根目录：全局写 password.txt 会误伤以后任何叫这名字的测试夹具，
+# 而「把口令拷到仓库根」正是最容易发生的那一次手滑。
+/password.txt
 
 __pycache__/
 *.pyc

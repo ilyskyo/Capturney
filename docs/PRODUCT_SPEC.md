@@ -388,7 +388,12 @@ app/src/main/java/com/ilyskyo/capturney/
 
 ### ✅ 已完成
 
-- `assembleDebug` / `assembleRelease` + **86 个单测全通过**
+- `assembleDebug` / `assembleRelease` + **364 个 JVM 单测、33 个设备测试全通过**
+  （2026-10-08 各跑过一次全量；准数不抄在这里，看 `app/build/test-results/` 与
+  `app/build/outputs/androidTest-results/connected/`）
+- **release 已接上正式签名**：`app-release.apk` 用 APK Signature Scheme v2 签出，
+  证书 SHA-256 与生成说明记在 `docs/BUILD.md` 的「正式签名 key」一节。keystore 在仓库之外，
+  口令只在 `local.properties`（不入库）。签名之后的包过 `tools/release_smoke.py`。
 - FSRS-6、`ShotClassifier`、`AmbienceScorer`、全部数据模型、JSON 存储、设置
 - 视觉引擎全套：检测 / 抠图 / 标签 / 场景分类 / 云端（可选）
 - 主题、7 个图标、两页 UI、取景器覆盖层、`CameraFocusController`
@@ -436,8 +441,8 @@ app/src/main/java/com/ilyskyo/capturney/
 ### 🔧 进行中
 
 **剩下的只有一件事：系统的真机验证。** 类型检查与单测能证明几何和调度是对的，
-证明不了「画面里的词片确实压在杯子上」。清单在 `docs/BUILD.md` 的「发布前收口」一节，
-13 条，每条都写清了**看什么**而不是「正常即可」——包括相册导入那张表（记在它拍下的那天、
+证明不了「画面里的词片确实压在杯子上」。清单在 `docs/BUILD.md` 的「真机验证清单」一节，
+23 条，每条都写清了**看什么**而不是「正常即可」——包括相册导入那张表（记在它拍下的那天、
 卡片有贴纸那个角、连导几张 12MP 不 OOM、云相册未同步项要开口）、以及系统「移除动画」
 该停哪几样与**不该**停哪几样。
 
@@ -458,7 +463,7 @@ app/src/main/java/com/ilyskyo/capturney/
 |---|---|
 | 真机验证 | 见上面「进行中」，这是发布前唯一的硬门槛。详情页的词片位置是坐标链路的终点，也是最需要先看一眼的一段 |
 | 四语词典 | 只有 `lexicon/en.json`。中/日/韩的词条需要从其他来源补，`LexiconEntry.words` 的结构已经支持多语言 |
-| release 签名 | 签名四项写在 `local.properties`，缺省产物不签名（见 `docs/BUILD.md`）；要发版需要一个长期 keystore |
+| keystore 的**备份**（key 本身已生成，见 `docs/BUILD.md`） | 正式 key 已经建好并接进构建，所以待做的不再是「有没有 key」，而是「这个 key 活不活得过换机器」：`capturney.p12` 与它的口令要各自存到仓库之外的位置，口令移进密码管理器之后删掉那个过渡文件。换 key 等于换一个应用，老用户收不到更新——这句话现在是事实，不是警告 |
 | 分享进来的**音频/视频** | `SEND` 的 image/* 与 text/plain 两条已经接进导入流水线与搜索页；其余 MIME 类型现在会被挡在 manifest 之外，不是漏实现 |
 | Baseline Profile | **只能由设备生成，本机生成不了**：ART 的 profile 格式要跑 macrobenchmark 采集，而这台机器没有设备、arm64-only 的 APK 也装不进 x86_64 模拟器。手写一份 `baseline-prof.txt` 不是不能编译，是**没有测量支撑的猜测**——把猜来的方法列表打进产物，换来的体积代价与启动收益谁都没看过。所以这一条留在待做，并且需要的是「接一台设备」而不是「再写代码」。要补的模块是 `:baselineprofile`（macrobenchmark + `androidx.profileinstaller`），钉住的路径是复习页的冷启动 |
 

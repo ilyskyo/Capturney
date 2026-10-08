@@ -28,8 +28,9 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 ```bash
 ./gradlew assembleDebug          # debug APK，applicationId 带 .debug 后缀
 ./gradlew installDebug           # 装到已连接的设备
-./gradlew testDebugUnitTest      # 325 个 JVM 单测，毫秒级（数量会漂，要准的看 app/build/test-results/）
-./gradlew connectedDebugAndroidTest   # 25 个设备测试，要有一台已连着的设备/AVD，约 2 分钟
+./gradlew testDebugUnitTest      # 364 个 JVM 单测，约半分钟（数量会漂，要准的看 app/build/test-results/）
+./gradlew connectedDebugAndroidTest   # 33 个设备测试（2026-10-08 在 wl-ci 上全量跑过），
+                                     # 要有一台已连着的设备/AVD，约 2 分钟
 ./gradlew assembleRelease        # R8 + shrinkResources + lintVitalRelease
 ```
 
@@ -76,20 +77,60 @@ release 产物默认**不签名**：签名四项（`release.storeFile` / `storeP
 
 ```properties
 # local.properties（已被 .gitignore 挡住，不要提交）
-release.storeFile=../keystore/capturney.jks
+release.storeFile=C:/Users/<你>/Documents/keystore/capturney.p12
 release.storePassword=...
 release.keyAlias=capturney
 release.keyPassword=...
 ```
 
+**密钥必须放在工作树之外。** 这一节以前写的是 `../keystore/capturney.jks`，那个路径在
+`app/build.gradle.kts` 里由 `file()` 解析，基准是 **`app/` 目录而不是仓库根**，所以它实际落在
+`WordLens/keystore/` —— **仓库里面**。而 `.gitignore` 当时只有 `*.keystore`，**既不挡 `*.jks`
+也不挡 `*.p12`**：任何一次 `git add -A` 都会把私钥连同仓库一起推上 GitHub，而公开仓库里的
+私钥等于这个应用的签名永久失效——拿到它的人能签出「出自同一个 key」的更新包，
+而这件事删掉提交也撤不回（历史里的对象还能被取出来）。现在 `.gitignore` 补了
+`*.jks` / `*.p12` / `/keystore/` / `/password.txt`，但那是第二道闸，**把密钥放在仓库外是第一道**。
+
+口令同理不要和密钥存在同一个目录里当长期备份——本机的 `keystore/password.txt` 是**过渡件**：
+把它移进密码管理器之后删掉。密钥文件本身要单独备份到至少一个离线位置（丢了和泄露一样糟，
+见下面那条长期承诺）。
+
 要点：
 
 - **不影响 R8**。签不签名，`minifyReleaseWithR8` 都会跑，`mapping.txt` 照样产出——所以下面的冒烟
-  在没有 keystore 的机器上（包括 CI）能原样跑。
+  在没有 keystore 的机器上（包括 CI）能原样跑。CI 产出的仍是 `app-release-unsigned.apk`，
+  这是有意的：签名口令不进 CI，而不是进不去。
 - 未签名的包要装到真机，得自己签：`apksigner sign --ks … app-release-unsigned.apk`，
   或者本地补上那四项直接产出签名包。
 - keystore 一旦对外发版就是**长期承诺**：换 key 等于换一个应用，老用户收不到更新。
-  所以 `待做` 里那条「要发版需要一个长期 keystore」是发布前的真门槛，不是形式主义。
+  所以备份不只是为了「不丢」，而是为了**换了之后知道发生了什么**。
+
+## 正式签名 key（2026-10-08 生成）
+
+| | |
+|---|---|
+| 文件 | `Documents/keystore/capturney.p12`（**仓库外**，PKCS12） |
+| alias | `capturney` |
+| 算法 | RSA 2048，自签证书 `SHA384withRSA`；生效 2026-10-08，**失效 2056-09-30**（10950 天） |
+| 证书 SHA-256 | `BE:13:63:9A:8F:8C:96:92:7C:3B:0C:A4:98:FE:6C:C2:4B:95:AB:E3:8F:45:6C:39:FB:20:17:26:67:F4:A2:9B` |
+| 证书 SHA-1 | `0F:80:CB:45:38:17:7F:06:A7:71:7A:0E:73:6B:83:16:44:D1:0E:30` |
+
+两个指纹都是 `keytool -list` 与 `apksigner verify --print-certs` **各读一次对上的**——它们本来就该
+是同一个东西，对不上说明包不是这个 key 签的。签名方案实测是 **v2 only**（`v1: false`），
+这是对的而不是漏配：`minSdk 26`，而 v1（JAR 签名）只服务 Android 7.0 以下的安装。
+
+生成它用的是 `Android Studio/jbr/bin/keytool.exe`。**它不在 PATH 里**（`where keytool` 与
+`command -v keytool` 都拿不到），所以敲裸命令会失败——这台机器上「没有 keytool」这个判断
+就是这么来的，其实 JBR 里带着它（`javap.exe` 同理，也在，别按旧印象写脚本）。
+口令走 `-storepass:file`，不从命令行参数过，避免落进 shell 历史与进程列表。
+
+那串 SHA-256 抄在这里是因为它**不是秘密**（它就打在发布出去的 APK 的证书里），而它是唯一能回答
+「这个包和三年前那个包是同一个人签的吗」的东西。装包之前先比它：
+
+```bash
+# build-tools 目录里有 35.0.0 与 36.0.0 两版，用哪版都行
+"$SDK/build-tools/36.0.0/apksigner.bat" verify --print-certs app/build/outputs/apk/release/app-release.apk
+```
 
 ## 只编 arm64
 
@@ -305,7 +346,7 @@ CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前
     **开读屏走一遍多选**：选中那张卡片要被念成「已选中」（此前只有一层紫色遮罩和一个灰色的勾选框，
     而遮罩读屏看不见、勾选框是 disabled 的——滚过一张张卡片时用户唯一能抓到的只有顶部那句「已选 N 项」，
     而那句话说的是数量，不是**哪几张**）。
-22. **详情页的长按面板与编辑**：长按大图 → 复制 / 编辑 / 删除三项各自走通；「复制这段文字」贴到
+21. **详情页的长按面板与编辑**：长按大图 → 复制 / 编辑 / 删除三项各自走通；「复制这段文字」贴到
     备忘录里应该只有标题、那句话说过的话和画面上的词，**不能有 id 或文件路径**。
     编辑里改标题、改一句话、选心情 → 保存之后页面当场是新的那句；原来摘要顶着「模型整理过，请核对」
     的那一条，用户重写过之后那句话必须**消失**（§8.1 要求的是「机器生成的东西能被认出来」，
@@ -315,14 +356,14 @@ CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前
     **打字打到一半转一次屏**：对话框要还开着、字要还在（原来转屏直接把对话框关掉，
     字留在一个已经关上的门上，而注释承诺的是不丢）。
     删除必须过确认框，确认之后自动离开详情页——留在一条已经不存在的记录上是看着一片空。
-23. **连点两下不是两条记录**（只能在真机上验）：结果页按「保存」之后**立刻再按一下**，
+22. **连点两下不是两条记录**（只能在真机上验）：结果页按「保存」之后**立刻再按一下**，
     时间轴只该多一条记录，`adb shell run-as … cat files/diary.json` 里那个条目 id 只出现一次；
     详情页「记下」按两下，复习队列里只有一句。提交是挂起的（JPEG 落盘 + 两份 JSON 各一次原子写），
     窗口只有几毫秒到几百毫秒，**取决于那张照片落地要多久**——JVM 里磁盘从来不慢，所以这条一直在
     测试覆盖之外。碰到导一张 12MB 的原图时最容易试出来。
     重复的条目 id 过去不是「多一条一样的」而是**一次闪退**：时间轴拿条目 id 当 LazyColumn 的 key，
     重复 key 直接抛 `IllegalArgumentException`。
-24. **没人引用的照片（冷启动那一扫）**：拍一张 → 按左上角关闭退出取景页（不保存、也不按重拍）→
+23. **没人引用的照片（冷启动那一扫）**：拍一张 → 按左上角关闭退出取景页（不保存、也不按重拍）→
     `adb shell run-as com.ilyskyo.capturney.debug ls -l files/entries`，那一张此刻**还在**——它要老满
     一小时才会被扫掉，而那道门槛是为了不删掉正在导入的那一张。一小时之后杀进程重进再看一次：
     那个文件该没了，而现存条目的照片、以及「词卡还在引用的那张贴纸」都必须还在
@@ -342,7 +383,7 @@ CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前
 - **18 搜索 / 添加页**：搜冠词（`a` / `the`）有结果；手写词真的进词典并出现在牌组里。
 - **20 时间轴多选**：长按进多选、单击是勾选而不是打开、删除前有带数量的确认框；
   选中态那颗勾现在是一枚实心圆 + 白勾（原来是「白圈里一个圆角方块」）。
-- **22 详情页的长按面板与编辑**：复制 / 编辑 / 删除三项各走通；编辑表单已从 alert 换成
+- **21 详情页的长按面板与编辑**：复制 / 编辑 / 删除三项各走通；编辑表单已从 alert 换成
   底部升起的 form sheet；确认键的文案已不再是「保存贴纸」。
 - **复习页**：同一张卡可以反复翻回正面；翻过一次之后那行提示会改口；两面同字的卡不再进队列
   并且进度条下面写明跳过了几张（数字与单复数都对）。
@@ -351,7 +392,7 @@ CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前
 
 **AVD 验不了、必须真机**的：1–7（相机、抠图边缘、旋转、ROM 首帧、触觉、TTS）、
 9（深色小组件与冷启动）、10（`adb backup` / Google One 的白名单）、13（12MB 原图的相册导入）、
-14–17（录音与麦克风权限的三种答案）、23（连点两下的真实挂起窗口）、24（一小时门槛的清扫扫描）。
+14–17（录音与麦克风权限的三种答案）、22（连点两下的真实挂起窗口）、23（一小时门槛的清扫扫描）。
 
 **未覆盖语种回落到英文**（2026-10-07 在 AVD 上确认过）：把系统语言换成 `fr-FR` 后首屏是
 整屏英文——「Moments / Words / Nothing recorded yet / Point the camera at anything…」。
