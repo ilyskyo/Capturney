@@ -217,12 +217,6 @@ data class WordCard(
     /** Earliest due timestamp across all directions, or null when the card is entirely new. */
     fun earliestDue(): Long? = states.values.minOfOrNull { it.due }
 
-    /** True if [direction] is due (or new) right now. */
-    fun isDue(direction: StudyDirection, now: Long = System.currentTimeMillis()): Boolean {
-        val s = state(direction) ?: return true
-        return now >= s.due
-    }
-
     companion object {
         fun newId(): String = java.util.UUID.randomUUID().toString().replace("-", "").take(16)
     }
