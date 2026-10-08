@@ -207,6 +207,19 @@ class LexiconFieldShapeTest {
             "out" to "在外",       // 原发 a. 外面的（「熄灭的」）
             "about" to "关于",     // 原发 prep. 在...周围
             "as" to "当作",        // 原发 adv. 同样地
+            // 第六批：`POS_MARKERS` 缺 `a.`，形容词词条系统性发到第二个（甚至 [机]/[计] 技术）义项。
+            "new" to "新的",       // 原发 陌生的
+            "different" to "不同的", // 原发 差动（来自 [机] 那个块）
+            "just" to "刚刚",      // 原发 合理的
+            "very" to "非常",      // 原发 恰好的
+            "big" to "大的",       // 原发 重要的
+            "early" to "早的",     // 原发 早熟的
+            "important" to "重要的", // 原发 有地位的
+            "national" to "国家的", // 原发 国立的
+            "far" to "远的",       // 原发 久远的
+            "over" to "在...之上", // 原发 结束
+            "sure" to "确信",      // 原发 必然的
+            "live" to "活的",      // 原发 生动的
         )
         val byWord = entries.associateBy { it.headword().lowercase() }
         val wrong = expected.mapNotNull { (word, want) ->
