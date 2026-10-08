@@ -174,17 +174,26 @@ class AdjectiveMarkerIsKnownDefectTest(unittest.TestCase):
     一个不跑断言的测试比没有测试更糟，所以这里显式记着这个错法。
     """
 
-    def test_adjective_first_words_fall_through_to_the_next_block(self) -> None:
-        # 这条以前用 expectedFailure 记着缺陷（首块 `a. 向下的` 匹配不上标记 → 整词返回 None →
-        # build() 把 down/back/bad/best/deep… 这 62 个常用词从词典里删掉）。
-        # 现在首块取不到东西会再试下一个块，所以它断言的是**修好之后的行为**：
-        # down 拿到 adv. 块的第一义项，back 拿到 vt. 块的第一义项，都不再是 None。
-        self.assertEqual("下", L.first_noun_sense("a. 向下的\nadv. 下, 下去, 降下"))
-        self.assertEqual("使后退", L.first_noun_sense("a. 后面的\nvt. 使后退, 支持"))
+    def test_adjective_first_words_use_the_adjective_block(self) -> None:
+        # 这条以前断言的是「首块取不到就落到下一个块」，因为 `a.` 当时不在 POS_MARKERS 里。
+        # 现在 `a.` 补上了（ECDICT 主要写 `a.` 而不是 `adj.`，实测 37043 个块），
+        # 所以首块 `a. 向下的` 自己就该出结果——**这是修正，不是回归**：
+        # 以前 down 会落到 n. 那块拿到「丘陵」，able 拿到「能够的」第二义项。
+        self.assertEqual("向下的", L.first_noun_sense("a. 向下的\nadv. 下, 下去, 降下"))
+        self.assertEqual("后面的", L.first_noun_sense("a. 后面的\nvt. 使后退, 支持"))
+
+    def test_an_unrecognised_marker_still_falls_through_to_the_next_block(self) -> None:
+        # 兜底没有被 `a.` 的加入消掉：块首是一个我们不认识的记号时，那一块整块作废、
+        # 继续找下一个块——这防的是「以后 ECDICT 又冒出别的标记，于是词被静默删掉」。
+        self.assertEqual("下", L.first_noun_sense("zz. 向下的\nadv. 下, 下去, 降下"))
 
     def test_a_word_with_no_usable_block_at_all_still_returns_none(self) -> None:
         # 兜底必须是「真的什么都没有」才放弃：全是可以长的、转写的、或非中文的块。
-        self.assertIsNone(L.first_noun_sense("abbr. DNA\n[计] Xylophone-7"))
+        self.assertIsNone(L.first_noun_sense("zz. 一个很长的义项名字超出十四字上限\nzz. Xylophone"))
+
+    def test_stray_spaces_from_stripped_tags_are_collapsed(self) -> None:
+        # `[药] 类鸦片(某词)的` 这类剥完括号会剩一个中间空格，卡片上看着像坏了。
+        self.assertEqual("类鸦片的", L.first_noun_sense("a. [药] 类鸦片(某词)的"))
 
 
 if __name__ == "__main__":

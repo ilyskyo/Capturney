@@ -75,8 +75,20 @@ BRACKET_RE = re.compile(r"\[[^\]]*\]")
 
 # POS markers ECDICT writes inline. Anything from a non-noun marker onwards is a different
 # part of speech and would pollute a noun gloss.
-POS_MARKERS = ("n.", "v.", "vt.", "vi.", "adj.", "adv.", "prep.", "conj.", "pron.", "num.",
-               "art.", "int.", "abbr.", "aux.", "modal.")
+#
+# 这份表是**数出来的**：扫一遍 CSV 里 40 万个块的首个 `xxx.` 记号、按出现次数排序，
+# 才看到 ECDICT 主要写 `a.`（37043 个块，仅次于 `n.`）而这里只有 `adj.`（1454 次）。
+# 后果是形容词条一律发到**第二个**义项（`new`→陌生的、`big`→重要的、`early`→早熟的），
+# 单义项的形容词块更糟：整块作废、继续往下落到 `[机]`/`[计]` 技术块里
+# （`different` 的中文背面因此是「差动」，原文那行是 `a. 不同的` 加 `[机] 差动, 微分的`）。
+# 补进来的每个记号都先看过程长样本，确认是语法标签而不是别的东西：
+# `un.`=不可数名词、`pl.`=复数（`glasses` 这类靠它）、`st.`=谚语整句、`comb.`=构词成分、
+# `vbl.`=动名词、`na.`=名词性修饰、`pp.`=过去分词。
+# 每个标记都含句点，所以不会出现 `n.`/`na.`、`v.`/`vbl.` 抢前缀匹配的问题（这点单独核过）。
+POS_MARKERS = ("n.", "a.", "v.", "vt.", "vi.", "adj.", "adv.", "prep.", "conj.", "pron.", "num.",
+               "art.", "int.", "interj.", "abbr.", "aux.", "modal.",
+               "un.", "na.", "pl.", "pla.", "pp.", "vbl.", "comb.", "pref.", "suf.", "suff.",
+               "vt.vi.", "vi.vt.", "st.")
 
 # Translation prefixes that mark a non-word sense: 网络 (web/Internet slang), 地名 (place
 # name), 姓 (surname), 医 (medicine), 机 (computing), 计 (computing), etc. These are correct
@@ -288,6 +300,12 @@ def first_noun_sense(translation: str) -> str | None:
         for raw_sense in SENSE_SPLIT_RE.split(sense_group):
             sense = raw_sense
             sense = sense.strip().strip("。．.；;，,、 ")
+            # 剥掉 `[药]`/`（…）` 之后会在中间留下空格，于是出现 `类鸦片 的` 这种带空格的释义。
+            # 中文释义里的空格没有区分作用（会变宽的是含拉丁的串，而那种本来就被下面拦掉），
+            # 所以不含 ASCII 字母时直接去掉——卡片背面是原样渲染这一行的，中间空格看着像排版坏了。
+            sense = re.sub(r"\s+", " ", sense).strip()
+            if sense and not any(ch.isascii() and ch.isalpha() for ch in sense):
+                sense = sense.replace(" ", "")
             if not sense or len(sense) > 14:
                 continue
             if not any(unicodedata.category(ch).startswith("L") for ch in sense):
