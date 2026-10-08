@@ -223,16 +223,30 @@ data class LexiconMatch(
     val confidence: Float,
     /** The model label that produced this match, for the "why did it say that?" UI. */
     val matchedLabel: String,
+    /**
+     * 命中**档位**：整词 1.0 / 别名整词 0.97 / 只差空格 0.95 / 双词 n-gram 0.78 / 单词 0.58。
+     *
+     * 必须和 [confidence] 分开存，因为 `confidence = 档位 × 模型分`。
+     * 图像标注器的模型分常年在 0.4～0.9，所以拿 0.95 去卡 `confidence` 会**把几乎整个词片层杀掉**，
+     * 而且卡住了的是「模型当时有多确信」而不是「这个条目是不是那个东西」这两件不同的事。
+     * 只有档位回答得了后者。
+     */
+    val tier: Float,
 )
 
 /**
  * In-memory lexicon with a match-first index.
  *
- * Design note: we deliberately do *not* hard-code the classifier's ~400 label strings. ML Kit
- * could swap models and rename labels at any time, and a lookup table keyed to one model's
- * output would rot. Labels are normalised, tokenised and matched against headwords and aliases,
- * so a dictionary improvement helps every model, and every future model inherits it.
+ * Design note: we deliberately do *not* hard-code the classifier's ~400 label strings **as a
+ * lookup table**. ML Kit could swap models and rename labels at any time, and a table keyed to one
+ * model's output would rot. Labels are normalised, tokenised and matched against headwords and
+ * aliases, so a dictionary improvement helps every model, and every future model inherits it.
+ * What *is* snapshotted is the label space in `src/test/resources/mlkit-labels.txt` — a fixture
+ * that proves the tier gate below holds across the model's whole output vocabulary, and goes red
+ * when the model changes so someone re-reads it. A fixture is not a lookup path.
  */
+const val WHOLE_LABEL_TIER = 0.95f
+
 class LexiconIndex(entries: List<LexiconEntry>) {
 
     /** Normalised English headword -> entries. */
@@ -350,6 +364,25 @@ class LexiconIndex(entries: List<LexiconEntry>) {
             .take(limit)
     }
 
+    /**
+     * 只保留**整词级**的命中：给「引擎标签 → 词片/条目」那一条路用。
+     *
+     * 存在的理由是 2026-10-09 那次读表：默认识别器（ML Kit 图像标注，446 个类）里有 17 个标签
+     * 会掉到标签内部的某个词——`Fast food` 命中 `en.fast`「快的」、
+     * `Mobile phone` 命中 `en.mobile`、`Cookware and bakeware` 命中的是 `en.and`「和」。
+     * 调用方拿的是第一名而且不看分数，所以那会直接变成一张教错东西的卡。
+     *
+     * 宁可没有词片：`PhotoEntryPipeline` / `CaptureViewModel` 在命中为空时**本来**就回落到
+     * 原始标签文本、不建条目，那是一条已经设计好的正常路径。
+     * 所以加这道门槛不是减少功能，是把「说错」换回「不说」。
+     *
+     * 过滤用 [LexiconMatch.tier] 而不是 [LexiconMatch.confidence]，理由见那个字段。
+     */
+    fun matchWholeLabel(
+        labels: List<Pair<String, Float>>,
+        limit: Int = 8,
+    ): List<LexiconMatch> = match(labels, limit).filter { it.tier >= WHOLE_LABEL_TIER }
+
     private fun consider(
         into: MutableMap<String, LexiconMatch>,
         candidates: List<LexiconEntry>?,
@@ -363,7 +396,7 @@ class LexiconIndex(entries: List<LexiconEntry>) {
             val confidence = (exact * modelScore.coerceIn(0f, 1f)).coerceIn(0f, 1f)
             val existing = into[e.id]
             if (existing == null || confidence > existing.confidence) {
-                into[e.id] = LexiconMatch(e, confidence, label)
+                into[e.id] = LexiconMatch(e, confidence, label, exact)
             }
         }
     }

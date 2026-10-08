@@ -28,7 +28,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 ```bash
 ./gradlew assembleDebug          # debug APK，applicationId 带 .debug 后缀
 ./gradlew installDebug           # 装到已连接的设备
-./gradlew testDebugUnitTest      # 370 个 JVM 单测，约半分钟（数量会漂，要准的看 app/build/test-results/）
+./gradlew testDebugUnitTest      # 374 个 JVM 单测，约半分钟（数量会漂，要准的看 app/build/test-results/）
 ./gradlew connectedDebugAndroidTest   # 33 个设备测试（2026-10-08 在 wl-ci 上全量跑过），
                                      # 要有一台已连着的设备/AVD，约 2 分钟
 ./gradlew assembleRelease        # R8 + shrinkResources + lintVitalRelease
@@ -644,6 +644,58 @@ python3 -m unittest discover tools
 另外查过替代数据源：日语的 JMdict、韩语的 kengdic / cc-kedict 都是 CC BY-SA（含相同方式共享），
 与 MIT 仓库并放需要单独的数据许可说明，而且它们解决的是「译词质量」，不解决「挑错实体」——
 真要引入得先把许可这件事谈清楚，别顺手把数据拷进来。
+
+## 引擎标签变成词片那一步：只认「整词档」
+
+取景页有两条路能长出词片，而它们的标签空间**不是同一张表**：EfficientDet 那 80 个 COCO 类由
+`DetectorConceptCoverageTest` 钉着；默认识别器是 **ML Kit 图像标注**（`MlKitOnDeviceEngine`），
+它的 446 个类过去没有任何东西看过。2026-10-09 把这 446 个逐个跑进 `LexiconIndex`，
+**17 个会掉到标签内部的某个词**，而调用方取第一名、不看分数：
+
+| 拍到的东西 | 引擎标签 | 过去会给的条目 |
+|---|---|---|
+| 快餐 | `Fast food` | `en.fast`「快的」 |
+| 手机 | `Mobile phone` | `en.mobile` |
+| 锅具烤盘 | `Cookware and bakeware` | `en.and`「和」 |
+| 毛绒玩具 | `Stuffed toy` | `en.toy` |
+| 摩天轮 | `Ferris wheel` | `en.wheel` |
+
+修法不是给这 17 个补概念（那要撰写 34 个此刻核不上的日语韩语值——Wikidata 现在 `curl` 超时，
+而且下个模型版本会再来一遍），而是**在引擎标签进词典那一步设档位门槛**：
+`LexiconIndex.matchWholeLabel` 只留 `tier >= WHOLE_LABEL_TIER`（0.95），
+四个调用点（`VisionRepository` / `PhotoEntryPipeline` / `CaptureViewModel` / `HomeViewModel` 铸卡那处）
+都换过去；搜索页继续用宽松的 `match`——那是人自己打的字，帮它找出来是对的。
+
+**门槛必须量在 `tier` 而不是 `confidence`**：`confidence = 档位 × 模型分`，
+而图像标注的模型分常年在 0.4～0.9，按 0.95 卡 `confidence` 会几乎杀掉整个词片层，
+并且卡的是「模型当时多确信」而不是「这个条目是不是那个东西」。
+
+代价与收益都量过：**446 个里 363 个照旧长出词片**，门槛只改变了那 17 个——
+它们从「给一个错的条目」变成「不给条目」；另有 66 个本来就查不到，两边都静着。
+「不给条目」是已经设计好的正常路径：`PhotoEntryPipeline` 与 `CaptureViewModel` 在命中为空时
+回落到原始标签文本、不建条目。所以这不是减少功能，是把**说错**换回**不说**。
+
+标签表 `app/src/test/resources/mlkit-labels.txt` 不是手抄的，是从**已构建的 release APK** 里
+抽出来的（模型自带元数据内嵌 `0-labels-en.txt`）：
+
+```bash
+python3 - <<'PY'
+import re, zipfile
+z = zipfile.ZipFile("app/build/outputs/apk/release/app-release.apk")
+d = z.read("assets/mlkit_label_default_model/mobile_ica_8bit_with_metadata_tflite").decode("latin-1")
+m = re.search(r"(?:(?:[0-9A-Za-z&'\-\(\)\., ]{2,44})\n){40,}", d)
+lines = [x.strip() for x in m.group(0).split("\n") if x.strip()]
+lines[0] = lines[0].split("0-labels-en.txt", 1)[-1]      # 首行前面粘着文件名
+print(len(lines), sorted(set(lines))[:5])
+PY
+```
+
+它是**测试夹具**，不是生产代码的查表路径（`Lexicon.kt` 那条设计说明仍然成立：生产侧不认识任何
+具体标签，词典改进对每个模型版本都生效）。换模型时这张表会让守卫先红，提醒重抽。
+
+`MlKitLabelSpaceTest` 四条各自证伪过：拆掉 `matchWholeLabel` 的过滤 → 前两条红、后两条绿；
+抬高「还剩多少能长词片」的下限 → 打印出真实的 363。最后那条的存在理由写在测试里：
+**把所有标签都过滤掉也能让前三条通过**，而那不是修好了错义项，是把功能关掉。
 
 ## 三个已经踩过的坑
 

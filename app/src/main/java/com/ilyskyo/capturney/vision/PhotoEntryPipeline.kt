@@ -330,7 +330,7 @@ class PhotoEntryPipeline(
         index: LexiconIndex,
         request: Request,
     ): Subject {
-        val match = index.match(listOf(detected.categoryName to detected.score)).firstOrNull()
+        val match = index.matchWholeLabel(listOf(detected.categoryName to detected.score)).firstOrNull()
         return Subject(
             id = LexiconIndex.normalize(detected.categoryName),
             word = match?.entry?.words?.get(request.targetLanguage.tag)

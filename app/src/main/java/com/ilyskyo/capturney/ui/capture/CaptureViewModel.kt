@@ -310,7 +310,7 @@ class CaptureViewModel(private val container: AppContainer) : ViewModel() {
         val objectsNew = best.map { obj ->
             val normFrame = NormBox(obj.box.left, obj.box.top, obj.box.right, obj.box.bottom)
             val sensorBox = OverlayGeometry.frameBoxToSensorNorm(normFrame, frame.crop, sensorWidth, sensorHeight)
-            val match = lexicon.match(listOf(obj.categoryName to obj.score)).firstOrNull()
+            val match = lexicon.matchWholeLabel(listOf(obj.categoryName to obj.score)).firstOrNull()
             LiveObject(
                 chip = WordChip(
                     key = LexiconIndex.normalize(obj.categoryName),

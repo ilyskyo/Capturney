@@ -165,7 +165,9 @@ class VisionRepository(
 
         val sceneClassifier = SceneClassifier(_taxonomy.value)
         val lexicon = lexiconRepository.index.value
-        val matches = lexicon.match(labels.map { it.text to it.score })
+        // 引擎标签只能换成**整词级**的条目：低于这个档位意味着命中的是标签内部的某个词
+        // （`Fast food` → 「快的」），而 `suggestions` 就是用户看到的词片。见 [matchWholeLabel]。
+        val matches = lexicon.matchWholeLabel(labels.map { it.text to it.score })
 
         // A scene is only worth classifying when the shot actually reads as one. Doing it for an
         // object shot would attach "kitchen" vocabulary to a photo of a single mug.

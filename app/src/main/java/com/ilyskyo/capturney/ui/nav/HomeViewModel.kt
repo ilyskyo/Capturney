@@ -1086,7 +1086,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         settings: AppSettings,
     ): CardWord {
         val entry: LexiconEntry? = obj.lexiconEntryId?.let(lexicon::byId)
-            ?: lexicon.match(listOf(obj.word to 1f)).firstOrNull()?.entry
+            ?: lexicon.matchWholeLabel(listOf(obj.word to 1f)).firstOrNull()?.entry
         val wordLang = entry?.words?.entries
             ?.firstOrNull { LexiconIndex.normalize(it.value) == LexiconIndex.normalize(obj.word) }
             ?.key
