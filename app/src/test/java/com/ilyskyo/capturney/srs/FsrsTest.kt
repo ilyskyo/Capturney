@@ -279,6 +279,22 @@ class FsrsTest {
         assertTrue(s.reviewCount == 0)
         assertEquals(Int.MAX_VALUE, Fsrs.daysUntilDue(s, t0))
         assertEquals(0.0, Fsrs.retention(s, t0), 1e-12)
+        assertTrue("新卡就是现在要做的东西", Fsrs.isDue(s, t0))
+    }
+
+    /**
+     * 「现在有没有得做」的边界正好是重学步长。
+     *
+     * 这一句被四个读数者共用：复习队列、桌面小组件、每日提醒那条通知、首页统计。
+     * 分头写的时候最先露馅的是桌面上那个数——按了「忘了」的卡 `due` 在一分钟之后，
+     * `now >= due` 把它读成「没得做」，于是读数会先掉到 0、几十秒后又跳回 1。
+     */
+    @Test
+    fun `a card due within the relearn window still counts as due`() {
+        val soon = Fsrs.State(stability = 3.0, due = t0 + 30_000L, lastReview = t0, reviewCount = 4)
+        val later = soon.copy(due = t0 + 60_001L)
+        assertTrue(Fsrs.isDue(soon, t0))
+        assertTrue("超出重学步长就不该算进这一轮", !Fsrs.isDue(later, t0))
     }
 
     /** Rounding to two decimals must not accumulate visible drift across a long schedule. */

@@ -187,14 +187,25 @@ class AppContainer(context: Context) {
     private var detectorFailureLogged = false
 
     /**
-     * Cards due right now, in whichever direction the user is currently drilling.
+     * 此刻有多少张要复习——桌面小组件与每日提醒那条通知共用的那一个数。
      *
-     * Suspends because the direction lives in DataStore; the widget provider runs in a coroutine
+     * 两件事都是修过的：
+     *
+     * - **事件卡原来不数**。这个数 feeds 的是一个「还剩几个」的读数和一条催你去复习的通知，
+     *   而点小组件打开的就是「记住」页——那一轮的队列里明明有事件卡（`StudyMaterial.EVENTS`
+     *   与 `WORDS_AND_EVENTS` 两条都收）。词汇做完、还压着 4 张事件卡时桌面上写 0，
+     *   而通知会在「其实有得做」的那天早上说「今天没有要复习的」。
+     * - **一分钟之内回来的那张原来也不数**。`now >= due` 读的是日历意义上的到期，
+     *   而按了「忘了」的那张仍算在这一轮里，只是排到队尾；用 `>=` 的话桌面上那个数会先掉到 0、
+     *   几十秒后又跳回 1。判定统一走 [Fsrs.isDueAt]，四个读数者（队列、小组件、通知、统计）
+     *   从今往后问的是同一句话。
+     *
+     * Suspends because the direction lives in DataStore; the widget provider runs a coroutine
      * so it can afford to wait for the first emission.
      */
     suspend fun dueCount(): Int {
         val direction = settings.settings.first().direction
-        return deck.stats(direction).due
+        return deck.stats(direction).due + diary.dueEvents().size
     }
 
     /** Build a card from a lexicon entry without touching the repository. */

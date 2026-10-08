@@ -197,7 +197,7 @@ class DeckRepository(
             false
         } else {
             val state = card.state(direction)
-            if (state == null) includeNew else now >= state.due
+            if (state == null) includeNew else Fsrs.isDueAt(state.due, now)
         }
     }
 
@@ -224,7 +224,7 @@ class DeckRepository(
                 // 用户自己判定「已掌握」，算学会，不再占用到期数。
                 card.mastered -> mature++
                 s == null -> fresh++
-                now >= s.due -> due++
+                Fsrs.isDueAt(s.due, now) -> due++
                 s.n < MATURITY_REVIEW_COUNT -> learning++
                 else -> mature++
             }

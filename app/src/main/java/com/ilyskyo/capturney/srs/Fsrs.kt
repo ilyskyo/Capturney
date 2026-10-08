@@ -167,8 +167,18 @@ object Fsrs {
         return kotlin.math.ceil((state.due - now).toDouble() / MS_PER_DAY).toInt()
     }
 
-    fun isDue(state: State, now: Long = System.currentTimeMillis()): Boolean =
-        state.reviewCount > 0 && now >= state.due
+    /**
+     * 「现在有没有得做」——到期，或者落在一分钟的重学步长之内。
+     *
+     * 把这一句收在调度器里，是因为它有四个读数者：复习队列、桌面上的小组件、每日提醒那条通知、
+     * 以及首页的统计。四处各写一遍 `now >= due` 的话，最先分叉的是那个**在桌面上的数**：
+     * 按了「忘了」的卡此刻仍算在这一轮里（只是排到队尾），而 `now >= due` 把它读成「没得做」，
+     * 于是小组件会先掉到 0 再在几十秒后跳回去——一个会跳的读数比一个晚几十毫秒的读数更不像真的。
+     */
+    fun isDue(state: State, now: Long = System.currentTimeMillis()): Boolean = isDueAt(state.due, now)
+
+    /** 同 [isDue]，但直接问到期的毫秒数：仓库里存的是 `FsrsState`，为问这一句转成 [State] 不值。 */
+    fun isDueAt(due: Long, now: Long = System.currentTimeMillis()): Boolean = due <= now + RELEARN_MS
 
     /**
      * The interval each grade *would* produce, without the ±5% fuzz.

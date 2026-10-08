@@ -96,6 +96,39 @@ class DeckRepositoryTest {
     }
 
     /**
+     * 桌面上的小组件、每日提醒那条通知、以及点进去之后的那一轮，必须数同一批卡。
+     *
+     * 两张卡的区别只在「什么时候回来」：一张半分钟后（按了「忘了」的正是这种），一张两分钟后。
+     * 用 `now >= due` 判的话，前一张在重学那几十秒里对三个读数都不存在——小组件掉到 0、
+     * 通知会说「今天没有要复习的」，而同一时刻 App 里的队列还压着它。
+     */
+    @Test
+    fun `a card relearning within the minute is still counted`() = runBlocking {
+        val repo = deckRepo(
+            card("relearning", due = now + 30_000),
+            card("tomorrow", due = now + 2 * 60_000),
+        )
+        assertEquals(listOf("relearning"), repo.dueCards(StudyDirection.RECOGNIZE, now).map { it.id })
+        assertEquals(1, repo.stats(StudyDirection.RECOGNIZE, now).due)
+
+        val events = diaryRepo(
+            EventCard(
+                id = "soon",
+                text = "刚说忘的那条",
+                happenedAt = now,
+                states = mapOf(StudyDirection.RECOGNIZE.name to FsrsState(due = now + 30_000, n = 2)),
+            ),
+            EventCard(
+                id = "later",
+                text = "下午才回来",
+                happenedAt = now,
+                states = mapOf(StudyDirection.RECOGNIZE.name to FsrsState(due = now + 2 * 60_000, n = 2)),
+            ),
+        )
+        assertEquals(listOf("soon"), events.dueEvents(now).map { it.id })
+    }
+
+    /**
      * 删日记时要靠这个判断决定 `stickers/` 那份副本去留。
      *
      * 判错的两种后果都不体面：多删了，词卡指向一个空文件；少删了，磁盘上永远留着一张

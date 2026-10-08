@@ -337,7 +337,7 @@ class DiaryRepository(
     fun dueEvents(now: Long = System.currentTimeMillis()): List<EventCard> =
         doc.current.events.filter { event ->
             val state = event.state()
-            !event.mastered && (state == null || now >= state.due)
+            !event.mastered && (state == null || Fsrs.isDueAt(state.due, now))
         }
 
     fun event(id: String): EventCard? = doc.current.events.firstOrNull { it.id == id }

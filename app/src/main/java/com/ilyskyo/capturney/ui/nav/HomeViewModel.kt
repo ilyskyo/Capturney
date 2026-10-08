@@ -858,19 +858,18 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         // 曾被选成同一门，那时铸下的卡词头写的就是母语，所以修好方向也修不回卡上的字。
         // 只能在这里挡住；但必须把数量说出来，不能让用户以为队列空了。
         var skippedSameFace = 0
-        // 到期判定放宽一个重学步长。理由不是「想早点看到它」，而是这条链上**没有钟**：
-        // buildRemember 只在牌组/日记/设置/会话/TTS 变化时重算，一分钟自己过去不会推动它。
+        // 到期判定走 `Fsrs.isDueAt`（含一分钟的重学步长），理由不是「想早点看到它」，而是这条链上
+        // **没有钟**：buildRemember 只在牌组/日记/设置/会话/TTS 变化时重算，一分钟自己过去不会推动它。
         // 照 `now >= due` 写的话，按了「忘了」的那张卡要等用户做点别的（切页签、退出去再进来）
         // 才会重新出现，而在那之前界面先给你看一屏「本轮完成」——一个会在几十秒后被推翻的结论。
         // 把「即将到期」的收进来并按到期时间排到队尾，同一件事就不必养一个后台 ticker：
         // 它此刻仍算在这一轮里，只是排在别的卡后面，正好像原版的重学队列。
-        val horizon = now + Fsrs.relearnDelayMs()
         val queue = buildList {
             if (current.material != StudyMaterial.EVENTS) {
                 val due = deck.cards.filter { card ->
                     // 已掌握的卡彻底不出现在队列里——它靠手动归档，不靠 EASY 的长间隔。
                     val state = card.state(direction)
-                    !card.mastered && (state == null || state.due <= horizon)
+                    !card.mastered && (state == null || Fsrs.isDueAt(state.due, now))
                 }
                 val native = settings.nativeLanguage
                 val (reviewable, collapsed) = due.partition {
@@ -883,7 +882,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 diary.events
                     .filter { event ->
                         val state = event.state()
-                        !event.mastered && (state == null || state.due <= horizon)
+                        !event.mastered && (state == null || Fsrs.isDueAt(state.due, now))
                     }
                     .forEach { add(ReviewItem.Event(it)) }
             }
