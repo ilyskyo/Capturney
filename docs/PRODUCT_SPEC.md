@@ -388,7 +388,7 @@ app/src/main/java/com/ilyskyo/capturney/
 
 ### ✅ 已完成
 
-- `assembleDebug` / `assembleRelease` + **364 个 JVM 单测、33 个设备测试全通过**
+- `assembleDebug` / `assembleRelease` + **367 个 JVM 单测、33 个设备测试全通过**
   （2026-10-08 各跑过一次全量；准数不抄在这里，看 `app/build/test-results/` 与
   `app/build/outputs/androidTest-results/connected/`）
 - **release 已接上正式签名**：`app-release.apk` 用 APK Signature Scheme v2 签出，
