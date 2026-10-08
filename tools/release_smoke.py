@@ -118,6 +118,16 @@ COMPANION_CLASSES: list[str] = [
 JSON_ELEMENT_NAMES: list[str] = [
     "schemaVersion", "headword", "glosses", "states", "origin", "mastered",
     "photoPath", "takenAt", "objects", "summarySource",
+    # 下面这批是 2026-10-09 补的，两个理由各自不同：
+    #   `entries` 是**四个资产文件共用的数组键**（en / concepts / gloss-ja / gloss-ko）。
+    #     它一旦被改名，每个资产根都会读出空表，而 `coerceInputValues` 不会为此报任何错——
+    #     这是这一族里影响面最大的一个键，之前竟然不在清单上。
+    #   `labelAliases` 是「检测器标签 → 概念」的通路：它断了不会有报错，
+    #     症状是 `traffic light` 这类复合类别重新掉回组成词（#53 那一整轮的起点）。
+    #   `language` 让注音层知道自己读的是 ja 还是 ko；`frequency` 决定截断顺序；
+    #   `ambience` / 那六个 cue 键是氛围词的触发条件，缺一个就少一类氛围判定。
+    "entries", "labelAliases", "language", "frequency", "ambience",
+    "minWarmth", "maxWarmth", "minBrightness", "maxBrightness", "minObjects", "maxObjects",
 ]
 
 # R8 判定整个类无用时会写成 `X -> R8$$REMOVED$$CLASS$$123`，那不是「保住了原名」。
