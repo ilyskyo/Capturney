@@ -272,12 +272,16 @@ object Fsrs {
     /**
      * Same-day ("short term") stability.
      *
-     * The `sinc` clamp below is not cosmetic and is easy to lose in a port: the wiki states
-     * "In practice, we should ensure that SInc >= 1 when G >= 2", and the reference
-     * implementation enforces it for every grade >= GOOD. Without it, tapping *Good* on a
-     * same-day re-show of an already-strong card *shrinks* stability — the `s^-w19` damping
-     * term overtakes the `e^(w17*(G-3+w18))` growth term once S is large — which quietly
+     * The `sinc` clamp below is not cosmetic and is easy to lose in a port: without it, tapping
+     * *Good* on a same-day re-show of an already-strong card *shrinks* stability — the `s^-w19`
+     * damping term overtakes the `e^(w17*(G-3+w18))` growth term once S is large — which quietly
      * penalises the exact behaviour a learner is being told to reward.
+     *
+     * **阈值是 G >= 3（GOOD 及以上），不是 wiki 那句话写的 "G >= 2"。** 照参考实现核过：
+     * `fsrs4anki_scheduler.js` 里是 `if (rating >= 3) sinc = Math.max(sinc, 1)`，
+     * 也就是 HARD（G=2）**不**钳制——同一天按「困难」本来就该让稳定性下降。
+     * 先前这里的注释引了 wiki 的 "G >= 2" 又自我矛盾地说"参考实现按 >= GOOD 执行"，
+     * 那种注释比没注释更危险：下一个人会照着它把对的代码"修"成 bug。
      */
     private fun nextShortTermStability(s: Double, rating: Rating): Double {
         var sinc = exp(params[17] * (rating.value - 3 + params[18])) * s.pow(-params[19])
