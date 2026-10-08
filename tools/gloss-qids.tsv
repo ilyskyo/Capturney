@@ -58,3 +58,26 @@ tennis	Q847
 # 不是 parking 这个动作；给它发一个指错概念的译词，比留着不译更糟（同一行的其余候选是电影与漫画）。
 # 同理 `meter` 的两个候选（Q192624 韵律、Q630649 节拍）说的是诗律/拍子，不是「停车计时器/米」，
 # 也不收——这些词的整词概念在 concepts.json 里已经有四语（如 parking meter），不靠片段兜底。
+# 第三批（日历词）：全部由 P31/P279 类别确认，不是靠标签相似——月名的类必须是 "month of the Gregorian calendar"，星期名的类必须是 "day of the week"，四季必须是 "season"。每个都是「该词候选里唯一命中那个类的实体」，命中数不为 1 就直接不收（autumn 就是这样被挡下的：没有一个候选带 season 类，宁缺勿滥）。may 也**故意不收**：这条词条的中文背面已被 PRIMARY_SENSES 定为情态动词「可以」，再挂「5月」就是同一 id 上两种矛盾义项。星期与月份的 ja/ko 与其 zh 标签逐条对得上（星期一↔月曜日↔월요일）。
+
+january	Q108
+february	Q109
+march	Q110
+april	Q118
+june	Q120
+july	Q121
+august	Q122
+september	Q123
+october	Q124
+november	Q125
+december	Q126
+monday	Q105
+tuesday	Q127
+wednesday	Q128
+thursday	Q129
+friday	Q130
+saturday	Q131
+sunday	Q132
+spring	Q1312
+summer	Q1313
+winter	Q1311
