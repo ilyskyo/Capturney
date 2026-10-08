@@ -455,11 +455,33 @@ powershell -NoProfile -Command "Stop-Process -Id <ci 的 qemu pid>,<ci 的 emula
 
 ```bash
 curl -L -o ecdict.csv https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv
-# --limit 必须 >= 现有条数：默认的 12000 会把选中的集合截断，
-# 实测那次「重生成会丢 3621 个 id、又多出 3635 个」根本不是筛选口径变了，纯粹是被 --limit 截的。
-# 想先看影响就写到 scratch 路径（守卫只在 --out 指向已存在的文件时才拦，见下）。
+# 先看影响就写到 scratch 路径（--out 指向不存在的文件时写出前的丢弃守卫不拦）。
 python3 tools/build_lexicon.py ecdict.csv --out app/src/main/assets/lexicon/en.json --limit 20000
+# 只想在已发布集合上追加、一条都不删：
+python3 tools/build_lexicon.py ecdict.csv --out app/src/main/assets/lexicon/en.json --keep-published
 ```
+
+`--limit` 与 `--keep-published` 的区别是 2026-10-08 用本地那份 65.9 MB 的 ECDICT 实测出来的，
+三个数都记在这里，因为**它们推翻了这一节先前自己的解释**（旧注释说「3621 个 id 消失是因为
+已发布那份是用另一个版本生成的」——不对）：
+
+| 怎么跑 | 结果 |
+|---|---|
+| `--limit 20000` | **0 个已发布 id 消失，13055 条内容逐字节相同**，多出 6949 条更低频的候选 |
+| 默认 `--limit 12000`（现已自动锚到现有 13055 条） | 仍会换掉 **3180** 条，被守卫拒绝写出 |
+| `--keep-published`（默认 limit） | 0 丢失、0 内容差异，写出 16251 条（净增 3196） |
+
+中间那一行才是重点：**已发布那份不是当前 ECDICT 的「前 13055 名」**，它是历史攒出来的集合
+（早期版本、手补的专名、放宽过的筛选口径都留在里面）。所以「怎么生成这份词典」这句话
+在以前做不到精确复现，现在靠 `--keep-published` 变成了一个明确的操作——截断只追加，
+与 `gloss-*.json` 的 `--apply`「已有值优先、拒绝变小」是同一条规矩。
+默认值 12000 低于现有条数这件事本身也是陷阱，代码现在会把下限锚到将被覆盖的那份文件并**说明它做了什么**；
+真要换血就显式给 `--limit` 配 `--force`。
+
+**这一节改的是生成器，`assets/lexicon/en.json` 一个字节都没动**——上面所有跑的都是 scratch 路径，
+跑完已删。要把 16251 条那份发出去是另一个决定：那 3196 条新增的中文释义没经过逐条审读，
+而按已经量过的缺陷率（前 ~1100 频次约 1/3、1100～2600 段约 1/8、再往下签名不再可信），
+直接发等于把没核过的释义推上卡片背面。
 
 两处筛选口径在 2026-10-08 放宽过，别再改回去，它们挡的是真实缺陷：
 

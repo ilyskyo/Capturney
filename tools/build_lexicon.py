@@ -480,12 +480,60 @@ def build(args: argparse.Namespace) -> int:
             entries.append(entry)
 
     entries.sort(key=lambda e: e["frequency"])
-    if args.limit and len(entries) > args.limit:
-        kept = entries[: args.limit]
-        # 频率截断不能截掉检测器词表：那 80 个类名是「拍照出词」这条主路的下限。
+
+    # `--limit` 就是「按频率取前 N」这个筛选口径本身，不是安全阀。它的默认值 12000 比已发布
+    # 那份的 13055 条小，于是任何人用默认命令重跑都会截掉一千多个词——然后撞上下面的丢弃守卫，
+    # 看起来像「筛选口径变了」。2026-10-08 实测把这条钉死：limit 给到 20000 时
+    # **0 个已发布 id 消失、13055 条 words 逐字节相同**，只多出 6949 条更低频的候选。
+    # 所以这里把下限锚在将被覆盖的那份文件上：宁可少截，不可静默换血。
+    previous_entries: list[dict] = []
+    out_path = Path(args.out)
+    if out_path.exists():
+        previous_entries = json.loads(out_path.read_text(encoding="utf-8")).get("entries", [])
+
+    limit = args.limit
+    if limit and len(previous_entries) > limit:
+        print(
+            f"--limit {limit} 低于现有文件的 {len(previous_entries)} 条，改用后者："
+            f"截掉已发布条目不是这个参数的用途（要故意换血就显式加 --limit 并配 --force）。",
+            file=sys.stderr,
+        )
+        limit = len(previous_entries)
+
+    # 频率截断不能截掉三类「别人正指着」的条目：
+    #   1) 检测器词表——那 80 个类名是「拍照出词」这条主路的下限；
+    #   2) 被 gloss-<lang>.json 引用的 id。注音层是**按 id** 找条目的，截掉它不会报错，
+    #      只会让那张卡的背面静默少一种语言。2026-10-08 实测：limit 已经锚到 13055，
+    #      这一轮仍会删掉 `en.botany` 与 `en.toothpaste` 两个被引用 id——所以捞回来必须发生在
+    #      截断这一步，不能只靠下面那道「拒绝写出」的守卫。守卫拦住的是事故，捞回来才是没事故。
+    #   3) --keep-published 时：已发布的那一份整体。今天这份 13055 条**不是**当前 ECDICT 的
+    #      前 13055 名（按频率截到 13055 会换掉 3180 条），它是历史攒出来的集合；
+    #      加上这一条之后「重生成」才是「在已发布集合上追加」，与 gloss-*.json 的
+    #      --apply「已有值优先、拒绝变小」是同一条规矩。默认不开，因为 --limit 仍然是
+    #      一个真要缩小时该用的筛选口径。
+    referenced_ids: set[str] = set()
+    for overlay in sorted(out_path.parent.glob("gloss-*.json")):
+        referenced_ids |= {e["id"] for e in json.loads(overlay.read_text(encoding="utf-8")).get("entries", [])}
+
+    if limit and len(entries) > limit:
+        keep_ids = {e["id"] for e in previous_entries} if args.keep_published else set()
+        kept = entries[: limit]
         have = {e["words"]["en"] for e in kept}
-        kept += [e for e in entries[args.limit:] if e["words"]["en"] in DETECTOR_VOCAB and e["words"]["en"] not in have]
-        entries = kept
+        kept_ids = {e["id"] for e in kept}
+        rescued = [
+            e
+            for e in entries[limit:]
+            if (e["words"]["en"] in DETECTOR_VOCAB and e["words"]["en"] not in have)
+            or (e["id"] in referenced_ids and e["id"] not in kept_ids)
+            or (e["id"] in keep_ids and e["id"] not in kept_ids)
+        ]
+        entries = kept + rescued
+        if args.keep_published:
+            print(
+                f"--keep-published：从已发布的 {len(keep_ids)} 条里捞回被频率截断切掉的那些，"
+                f"写出总数 {len(entries)}",
+                file=sys.stderr,
+            )
 
     payload = {
         "schemaVersion": 2,
@@ -493,21 +541,20 @@ def build(args: argparse.Namespace) -> int:
         "entries": entries,
     }
 
-    out = Path(args.out)
+    out = out_path
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    # 重建词典最容易犯的错不是写坏内容，而是**悄悄换掉一批条目**。实测：拿当前 ECDICT
-    # 重跑一次，会有 3625 个旧 id 消失、3633 个新 id 出现——因为已发布那份是用另一个
-    # 版本生成的。而 `gloss-<lang>.json` 与场景词表都是**按 id** 找条目的，它们不会报错，
-    # 只会让对应的背面释义静默变空。这条真发生过（`en.toothpaste` 被 GlossOverlayCoverageTest 抓到）。
-    if out.exists() and not args.force:
-        previous = {e["id"] for e in json.loads(out.read_text(encoding="utf-8")).get("entries", [])}
+    # 重建词典最容易犯的错不是写坏内容，而是**悄悄换掉一批条目**：已发布的那份里有一批 id 是
+    # 攒出来的（早期版本、手补的专名），而 `gloss-<lang>.json` 与场景词表都是**按 id** 找条目的，
+    # 它们不会报错，只会让对应的背面释义静默变空。这条真发生过（`en.toothpaste`
+    # 被 GlossOverlayCoverageTest 抓到）。上面截断时已经把 ECDICT 还能产出的被引用 id 捞了回来，
+    # 所以这里剩下的 fatal 只有一种形状：**某个被引用的 id 现在这份 CSV 已经根本产不出来了**，
+    # 那不是截断问题，捞不回来，只能拒绝写出。另一道闸是删除总量超 --max-dropped 就拒绝。
+    if previous_entries and not args.force:
+        previous = {e["id"] for e in previous_entries}
         kept = {e["id"] for e in entries}
         dropped = sorted(previous - kept)
-        referenced: set[str] = set()
-        for overlay in sorted(out.parent.glob("gloss-*.json")):
-            referenced |= {i["id"] for i in json.loads(overlay.read_text(encoding="utf-8")).get("entries", [])}
-        fatal = [i for i in dropped if i in referenced]
+        fatal = [i for i in dropped if i in referenced_ids]
         if fatal:
             raise SystemExit(
                 f"拒绝写出：这次会删掉 {len(fatal)} 个仍被释义补丁引用的条目（如 {fatal[:5]}）。"
@@ -550,7 +597,11 @@ def main() -> int:
     parser.add_argument("--wikidata", default="tools/out/wikidata.json",
                         help="optional JSON of {english_word: {zh,ja,ko,ipa}}")
     parser.add_argument("--limit", type=int, default=12000,
-                        help="cap entries by frequency rank; 0 for everything")
+                        help="cap entries by frequency rank; 0 for everything。"
+                             "注意默认值比已发布那份的条数小，用默认命令重跑就是在换血——"
+                             "代码会把下限锚到现有文件，但要真正只追加就加 --keep-published")
+    parser.add_argument("--keep-published", action="store_true",
+                        help="把已经发布的那批 id 当下限：频率截断只追加，不删旧条目")
     # Reserved for a future concreteness filter (e.g. WordNet lexicographer files). See the
     # module docstring for why it is not needed today.
     parser.add_argument("--force", action="store_true",
