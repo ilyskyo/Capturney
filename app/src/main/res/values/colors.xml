@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="wl_background">#FFFBF7</color>
-    <color name="wl_ic_launcher_background">#FFE8DCCB</color>
 
     <!--
       桌面小组件的颜色。
