@@ -12,5 +12,6 @@
 {"id":"en.wine_glass","words":{"en":"wine glass","zh":"高脚杯","ja":"ワイングラス","ko":"와인 잔"},"glosses":{"zh":"高脚杯","ja":"ワイングラス","ko":"와인 잔"},"labelAliases":["wine glass","wine glasses","wineglasses"],"frequency":0,"source":"manual"},
 {"id":"en.hot_dog","words":{"en":"hot dog","zh":"热狗","ja":"ホットドッグ","ko":"핫도그"},"glosses":{"zh":"热狗","ja":"ホットドッグ","ko":"핫도그"},"labelAliases":["hot dog","hot dogs","hotdog"],"frequency":0,"source":"manual"},
 {"id":"en.teddy_bear","words":{"en":"teddy bear","zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"glosses":{"zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"labelAliases":["teddy bear","teddy bears"],"frequency":0,"source":"manual"},
-{"id":"en.hair_drier","words":{"en":"hair drier","zh":"吹风机","ja":"ヘアドライヤー","ko":"헤어 드라이기"},"glosses":{"zh":"吹风机","ja":"ヘアドライヤー","ko":"헤어 드라이기"},"labelAliases":["hair drier","hair dryer","hair driers","hair dryers"],"frequency":0,"source":"manual"}
+{"id":"en.hair_drier","words":{"en":"hair drier","zh":"吹风机","ja":"ヘアドライヤー","ko":"헤어 드라이기"},"glosses":{"zh":"吹风机","ja":"ヘアドライヤー","ko":"헤어 드라이기"},"labelAliases":["hair drier","hair dryer","hair driers","hair dryers"],"frequency":0,"source":"manual"},
+{"id":"en.teddy","words":{"en":"teddy","zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"glosses":{"zh":"泰迪熊","ja":"ぬいぐるみ","ko":"테디베어"},"labelAliases":["teddy","teddies","teddy bear"],"frequency":10084,"source":"manual"}
 ]}

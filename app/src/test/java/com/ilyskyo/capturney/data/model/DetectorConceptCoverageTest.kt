@@ -87,11 +87,29 @@ class DetectorConceptCoverageTest {
     fun compoundLabelsResolveToThemselvesNotTheirComponents() {
         // 这一条盯的是「第一名是不是那个复合概念本身」，而不只是「有没有过阈值」：
         // 阈值挡得住 0.58 的组成词，挡不住一个恰好也叫整词的错概念。
-        val wrong = COMPOUND_LABELS.mapNotNull { (label, id) ->
+        // 下面 PINNED_SINGLE_LABELS 是那句话的活标本：`teddy` 是**整词**命中 `en.teddy`、分数 1.0，
+        // 而 ECDICT 那个词头的第一义项是「连衫衬裤」——拍到泰迪熊的人会被教成一件内衣。
+        // 2026-10-09 用概念层把 `en.teddy` 覆盖成「泰迪熊」，这条盯着它别退回去。
+        val wanted: List<Pair<String, String>> =
+            COMPOUND_LABELS.map { (label, id) -> label to id } +
+                PINNED_SINGLE_LABELS.map { (label, pinned) -> label to pinned.id }
+        val wrong = wanted.mapNotNull { (label, id) ->
             val top = index.match(listOf(label to 1.0f)).firstOrNull()
             if (top?.entry?.id == id) null else "'$label' 命中 ${top?.entry?.id}，应为 $id"
         }
-        assertTrue("复合类别被解析成了别的东西：\n${wrong.joinToString("\n")}", wrong.isEmpty())
+        assertTrue("这些类别被解析成了别的东西：\n${wrong.joinToString("\n")}", wrong.isEmpty())
+
+        // 身份对了还要问「是哪个意思」：`teddy` 命中 `en.teddy` 拿满分，可 ECDICT 那个词头的
+        // 第一义项是「连衫衬裤」——光比 id 的这条断言在它身上是**绿的**，
+        // 所以必须单独问一次中文里有没有那个能拍到的东西。
+        val wrongSense = PINNED_SINGLE_LABELS.mapNotNull { (label, want) ->
+            val entry = index.match(listOf(label to 1.0f)).firstOrNull()?.entry
+                ?: return@mapNotNull "'$label' 一个都没命中"
+            val zh = entry.words["zh"].orEmpty()
+            if (want.zhMustContain in zh) null
+            else "「$label」→ ${entry.id} 的中文是「$zh」，不含「${want.zhMustContain}」"
+        }
+        assertTrue("这些相机词的正解被 ECDICT 的首义项顶掉了：\n${wrongSense.joinToString("\n")}", wrongSense.isEmpty())
     }
 
     /**
@@ -152,8 +170,59 @@ class DetectorConceptCoverageTest {
         assertTrue("这些概念没有母语释义，卡背面会是空的：\n${missing.joinToString("\n")}", missing.isEmpty())
     }
 
+    /**
+     * 相机能长出来的那些词，背面**不许只有一种母语拿得到**。
+     *
+     * 断的是「孤儿」而不是「缺三种」：整表 13055 条里大部分本来就只有中文释义，那是产品当前
+     * 的内容边界（`docs/BUILD.md` 的取数那一节写着），要求它们补齐四语会把一条假承诺写进测试。
+     * 但检测器的标签空间不一样——它是**举起来就会长出来的那批词**，
+     * 而铸卡时只带真正存在的那种语言的释义（借来的语言会被 `LexiconEntry.toCard` 滤掉）。
+     * 所以只要某个相机词有 zh 却没有 ja/ko，就会出现一件很难发现的事：
+     * 中文用户拍到杯子看到背面，日语用户拍到同一个杯子拿到一张空卡。
+     * 两侧都不崩、不报错，只有换系统语言再拍一次才看得见——而那一步没人会做。
+     *
+     * 2026-10-09 实测这条是成立的（抽查 54 个相机词：三语全齐 54、只有中文 0、三语全缺 0），
+     * 所以它现在钉的是「别把它弄坏」，而不是「去补还没做的」。
+     */
+    @Test
+    fun noCameraVisibleWordHasAnEmptyCardBackForSomeNativeLanguage() {
+        val orphans = buildList {
+            for (label in DETECTOR_LABELS) {
+                val top = index.match(listOf(label to 1.0f)).firstOrNull() ?: continue
+                val entry = top.entry
+                val present = listOf("zh", "ja", "ko").filter { tag ->
+                    val word = entry.words[tag]
+                    val gloss = entry.glosses[tag]
+                    !word.isNullOrBlank() || !gloss.isNullOrBlank()
+                }
+                if (present.isNotEmpty() && present.size < 3) {
+                    add("「$label」→ ${entry.id} 只有 $present，缺 " +
+                        listOf("zh", "ja", "ko").filterNot { it in present })
+                }
+            }
+        }
+        assertTrue(
+            "这些相机词会被某一种母语的用户拍成空背面：\n${orphans.joinToString("\n")}",
+            orphans.isEmpty(),
+        )
+    }
+
     private companion object {
         const val WHOLE_LABEL_FLOOR = 0.95f
+
+        /**
+         * 单词形标签里那些**整词命中却是错概念**的。
+         *
+         * 它们过不了 0.95 那道阈值检查——阈值只看档位，而这一类错拿的是满分；
+         * 光比 id 也不行，因为错的词头本身就是那个 id。所以要同时钉住
+         * 「必须是哪个条目」与「中文里必须有那个能拍到的东西」。
+         * `en.teddy` 的 ECDICT 首义项是「连衫衬裤」，2026-10-09 用概念层覆盖成「泰迪熊」。
+         */
+        data class Pinned(val id: String, val zhMustContain: String)
+
+        val PINNED_SINGLE_LABELS = mapOf(
+            "teddy" to Pinned("en.teddy", "熊"),
+        )
 
         /** 带空格的类别：修之前它们全会掉到组成词上。 */
         val COMPOUND_LABELS = mapOf(
