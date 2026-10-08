@@ -267,10 +267,15 @@ Room 能扛更大规模、查询也更方便，但**明文 JSON 可以 git diff�
 
 | 角色 | 色值 |
 |---|---|
-| Primary | `#FF8A65` 暖珊瑚橙 |
-| Secondary | `#4DB6AC` |
-| Tertiary | `#FFD54F` |
-| Background | `#FFF8F3` |
+| Primary | `#FF8A65` 暖珊瑚橙（`Color.kt` 的 `Coral`） |
+| Secondary | `#4DB6AC`（`Seafoam`） |
+| Tertiary | `#FFD54F`（`Amber`） |
+| Background | 浅色 `#FFFBF7` / 深色 `#FF1A1512`（`res/values{,-night}/colors.xml` 的 `wl_background`） |
+
+背景这一行以前写的是 `#FFF8F3`——那**不是**本应用背景色，而是取景页某张 `@Preview` 的画布色
+（`CaptureScreen.kt` 的 `backgroundColor = 0xFFFFF8F3`），抄进规范会让人以为那是画布基色，
+而深色模式（真正会让人看清背景的那一半）当时完全没有被表示。
+`SourceStructureDocTest` 现在把这一行的两个值直接对到 `colors.xml`，写错会红。
 
 ### 9.2 圆角
 
@@ -401,7 +406,7 @@ app/src/main/java/com/ilyskyo/capturney/
 
 ### ✅ 已完成
 
-- `assembleDebug` / `assembleRelease` + **378 个 JVM 单测、33 个设备测试全通过**
+- `assembleDebug` / `assembleRelease` + **379 个 JVM 单测、33 个设备测试全通过**
   （2026-10-08 各跑过一次全量；准数不抄在这里，看 `app/build/test-results/` 与
   `app/build/outputs/androidTest-results/connected/`）
 - **release 已接上正式签名**：`app-release.apk` 用 APK Signature Scheme v2 签出，

@@ -96,6 +96,39 @@ class SourceStructureDocTest {
         )
     }
 
+    /**
+     * §9.1 那四行配色必须对得上**它所指的那个定义处**，不是「文件里某处出现过」。
+     *
+     * 这条是被一次真实纠错逼出来的：`Background` 那一行原本写 `#FFF8F3`，
+     * 而那个数确实**存在于代码里**——它是取景页一张 `@Preview` 的画布色
+     * （`backgroundColor = 0xFFFFF8F3`）。所以「这个 hex 在代码里出现过」这种断言
+     * 根本抓不到它：值是真的，用途是错的。真正的应用背景是 `wl_background`，
+     * 浅色 `#FFFBF7`、深色 `#FF1A1512`，而深色那一半以前在规范里压根没有。
+     */
+    @Test
+    fun the_palette_section_names_the_values_the_theme_actually_uses() {
+        val colorCode = File(root, "app/src/main/java/com/ilyskyo/capturney/ui/theme/Color.kt").readText(Charsets.UTF_8)
+        val section = section(spec, "## 9.", "## 10.")
+        for (hex in listOf("FF8A65", "4DB6AC", "FFD54F")) {
+            assertTrue("§9.1 写了 #$hex，但 Color.kt 里没有这个值", colorCode.contains(hex, ignoreCase = true))
+            assertTrue("§9.1 里没有 #$hex 这一行", section.contains("#$hex", ignoreCase = true))
+        }
+
+        for ((file, label) in listOf("values" to "浅色", "values-night" to "深色")) {
+            val xml = File(root, "app/src/main/res/$file/colors.xml")
+            assertTrue("${label}的 colors.xml 找不到", xml.isFile)
+            val declared = Regex("""name="wl_background"\s*>\s*#([0-9A-Fa-f]{6,8})\s*<""")
+                .find(xml.readText(Charsets.UTF_8))?.groupValues?.get(1)
+            assertTrue("${label}的 wl_background 读不到，量具有问题", declared != null)
+            // 允许写 #RRGGBB 或 #AARRGGBB 两种形式，尾数不同不算错。
+            val bare = declared!!.removePrefix("FF").take(6)
+            assertTrue(
+                "§9.1 的 Background 行没有写出${label}真正在用的 #$bare（themes/小组件/冷启动都读它）",
+                section.contains("#$bare", ignoreCase = true) || section.contains(declared, ignoreCase = true),
+            )
+        }
+    }
+
     private fun section(text: String, from: String, until: String): String {
         val a = text.indexOf(from)
         assertTrue("文档里找不到「$from」这一节", a >= 0)

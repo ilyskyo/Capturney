@@ -28,7 +28,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 ```bash
 ./gradlew assembleDebug          # debug APK，applicationId 带 .debug 后缀
 ./gradlew installDebug           # 装到已连接的设备
-./gradlew testDebugUnitTest      # 378 个 JVM 单测，约半分钟（数量会漂，要准的看 app/build/test-results/）
+./gradlew testDebugUnitTest      # 379 个 JVM 单测，约半分钟（数量会漂，要准的看 app/build/test-results/）
 ./gradlew connectedDebugAndroidTest   # 33 个设备测试（2026-10-08 在 wl-ci 上全量跑过），
                                      # 要有一台已连着的设备/AVD，约 2 分钟
 ./gradlew assembleRelease        # R8 + shrinkResources + lintVitalRelease
