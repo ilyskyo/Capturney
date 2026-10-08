@@ -120,7 +120,7 @@ every device. The reasoning lives in `docs/PRODUCT_SPEC.md` §5 and §8.
 
 ## Bundled fonts and icons are original
 
-The fourteen icons in `ui/icons/CapturneyIcons.kt` are hand-authored geometric `ImageVector`s. They
+The fifteen icons in `ui/icons/CapturneyIcons.kt` are hand-authored geometric `ImageVector`s. They
 contain no third-party icon geometry, and `androidx.compose.material:material-icons-extended` is
 deliberately **not** a dependency: it carries roughly two thousand icons for an app that needs
 fourteen, which is a poor trade against APK size.

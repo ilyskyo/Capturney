@@ -296,13 +296,14 @@ Room 能扛更大规模、查询也更方便，但**明文 JSON 可以 git diff�
 |---|---|---|
 | 检测 | MediaPipe tasks-vision `efficientdet_lite0`（13.5MB） | Apache-2.0 |
 | 抠图 | MediaPipe `InteractiveSegmenter` / `magic_touch`（6.1MB） | Apache-2.0 |
-| 识别兜底 | ML Kit `ImageLabeler` | Apache-2.0 |
+| 识别 | ML Kit `ImageLabeler` —— **默认引擎**，云端只是用户自带 key 时的可选路（`VisionRepository.engineFor` 最后 `return onDevice`） | Apache-2.0 |
 | 相机 | CameraX 1.6.2 | Apache-2.0 |
-| 词典 | ECDICT 12000 条（`tools/build_lexicon.py` 生成） | MIT |
+| 词典 | ECDICT（MIT），`tools/build_lexicon.py` 生成，现发 **13055 条** | MIT |
 | 存储 | kotlinx.serialization + DataStore | Apache-2.0 |
+| 其余钉死版本 | Compose BOM、Lifecycle、Work、Activity、Coroutines 等**逐条列在 `THIRD_PARTY_NOTICES.md`**，版本源是 `gradle/libs.versions.toml` | Apache-2.0 |
 | 字体 | Nunito / Inter | OFL（原文在 `third_party/fonts/`） |
 
-- **7 个图标全部自绘**，因此去掉了 `material-icons-extended`。
+- **15 个图标全部自绘**（`ui/icons/CapturneyIcons.kt`），因此去掉了 `material-icons-extended`。
 - **不用 Hilt / Room**。
 - ABI 只编 arm64。
 - **不用 `@latest`**：供应链可控，不要自动更新机制自动换版本。
@@ -320,6 +321,12 @@ app/src/main/java/com/ilyskyo/capturney/
 ├── CapturneyApplication.kt            建 AppContainer
 ├── core/AppContainer.kt              手写 DI
 ├── core/RetryGate.kt                 带冷却窗口的重试门：把「lazy 缓存一次失败」换成「等一会儿再试」
+├── core/reminder/                    每日到期提醒：ReminderScheduler（WorkManager 普通周期任务）
+│              ReminderPlan            「下一次该几点」的纯算术（可 JVM 测）
+│              DueReminderWorker · ReminderNotifications
+├── core/voice/                       「录一段」那一族：VoiceRecorder（MediaRecorder 的接缝）
+│              VoiceMemo.kt            一台显式状态机（TakePhase / TakeEvent / TakeNotice / TakeTransition）
+│                                      「离开这一条」的四条路都走它，语音文件不由调用方各自删
 ├── data/
 │   ├── model/      Entry · EventCard · WordCard · Lexicon · Scene · FsrsState · RatingPalette
 │   ├── repository/ Deck · Diary · Lexicon · Settings
@@ -335,6 +342,8 @@ app/src/main/java/com/ilyskyo/capturney/
 │   ├── CutoutGeometry.kt             前景框：原图像素尺度 → 贴纸位图尺度并夹紧（修「贴纸一直是空的且不报错」）
 │   ├── AlphaMatte.kt                 低分辨率 mask → 贴纸 alpha，双线性放大（die-cut 白描边不留台阶）
 │   ├── PhotoEntryPipeline.kt         「一张照片 → 一条条目」的唯一一条流水线：快门与相册导入共用
+│   ├── detection/ EfficientDetector.kt  MediaPipe Objects（efficientdet_lite0）的封装：取景的 2Hz 检测循环
+│   │              DetectedObject.kt     一个检测框 + 类别名 + 分数（类别名再交给词典翻译）
 │   └── camera/
 │       ├── CameraFocusMath.kt         纯几何（19 测试）
 │       ├── OverlayGeometry.kt         框 → 屏幕坐标（15 测试）
@@ -353,7 +362,7 @@ app/src/main/java/com/ilyskyo/capturney/
     │              SoftShadow           多层柔和阴影（接触 / 半影 / 铺开三段），替代单层硬边 elevation
     │              Indication           NoIndication：全局零波纹的空指示器，主题里一处生效
     │              Pressable            pressable / pressFeedback：按压反馈的唯一入口
-    ├── icons/     CapturneyIcons（11 个手绘）
+    ├── icons/     CapturneyIcons（15 个手绘）
     ├── common/    ByteLruCache         按字节上限的位图 LRU；淘汰只丢引用，绝不 recycle()
     ├── components/ Common · PillSwitch（胶囊分段切换：选中背景是一块在段间滑动的胶囊）
     │              OptionChip（选择胶囊：复用 M3 FilterChip 的语义，只把按压手感接上 pressFeedback）
@@ -361,7 +370,11 @@ app/src/main/java/com/ilyskyo/capturney/
     ├── lookback/  时间轴 · 条目详情（词长回原图 + 补一句）
     ├── search/    搜索 / 添加（SearchScreen · SearchViewModel）
     ├── remember/  复习（RememberScreen · IntervalFormat）
-    └── capture/   CaptureScreen · CaptureCamera · CaptureViewModel · ViewfinderOverlay
+    ├── capture/   CaptureScreen · CaptureCamera · CaptureViewModel · ViewfinderOverlay
+    └── settings/  SettingsScreen · SettingsViewModel
+                   保持率 / 评级色系 / 「我的词条」——手写词进词典的兑现处（`user-en.json` 读坏了
+                   要说是哪一份文件，不能安静退回内置词典）
+                   通知权限**在用户拨开开关那一刻**才请求，不在启动时要
 ```
 
 **四条架构约束**：
@@ -388,7 +401,7 @@ app/src/main/java/com/ilyskyo/capturney/
 
 ### ✅ 已完成
 
-- `assembleDebug` / `assembleRelease` + **374 个 JVM 单测、33 个设备测试全通过**
+- `assembleDebug` / `assembleRelease` + **377 个 JVM 单测、33 个设备测试全通过**
   （2026-10-08 各跑过一次全量；准数不抄在这里，看 `app/build/test-results/` 与
   `app/build/outputs/androidTest-results/connected/`）
 - **release 已接上正式签名**：`app-release.apk` 用 APK Signature Scheme v2 签出，
