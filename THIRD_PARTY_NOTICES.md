@@ -88,6 +88,13 @@ There is also no translation backend anywhere in `tools/` — no MT API, no LLM 
 
 Resolved versions are pinned in `gradle/libs.versions.toml`.
 
+**Test-only dependencies are deliberately absent** (`junit`, `espresso-core`, `androidx.test.ext:junit`,
+the Compose UI-test artifacts): they are not in the shipped APK, so naming them here would turn a
+legal notice into a list of test frameworks nobody reads. `ThirdPartyNoticesCoverageTest` reads that
+exclusion from `app/build.gradle.kts`'s `testImplementation` / `androidTestImplementation` lines
+rather than restating it — and asserts that every version that *does* ship appears below, so bumping
+a dependency without updating this table goes red.
+
 | Library | Version | Licence | Used for |
 |---|---|---|---|
 | `androidx.compose.*` (BOM) | 2026.02.01 | Apache-2.0 | UI toolkit |

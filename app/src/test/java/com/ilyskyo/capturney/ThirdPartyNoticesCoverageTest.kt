@@ -146,6 +146,59 @@ class ThirdPartyNoticesCoverageTest {
         return noticesText.contains(group.split('.').take(2).joinToString("."))
     }
 
+    /**
+     * catalog 里每一个**会进包**的版本号，都必须写在这份文件里。
+     *
+     * 上一条断言只问「这个组有没有被提名」，而声明文件是一张带版本的表——
+     * 把 CameraX 从 1.6.2 升到 1.7.0 而忘了改这一行，上一条守卫照样绿。
+     * 所以这里逐个数核：catalog 的版本值必须原样出现在文件里。
+     *
+     * 测试依赖（junit / espresso / test-ext / compose ui-test）故意不在表里：
+     * 它们不进 release 产物，给它们署名只会让这份文件长成一串没人读的测试框架名单。
+     * 名单从 build 文件的 `testImplementation` / `androidTestImplementation` 行**读出来**，
+     * 不是在这里另写一份——两处各写一遍的话，总有一处会先过期。
+     */
+    @Test
+    fun every_shipped_dependency_version_is_written_in_the_notices() {
+        val testOnlyAliases = File(root, "app/build.gradle.kts").readLines()
+            .flatMap { line ->
+                if (!line.trimStart().startsWith("testImplementation") &&
+                    !line.trimStart().startsWith("androidTestImplementation")
+                ) {
+                    emptyList()
+                } else {
+                    LIBS_ACCESSOR.findAll(line).map { it.groupValues[1].replace('.', '-') }.toList()
+                }
+            }.toSet()
+        assertTrue("从 build 文件里只认出 ${testOnlyAliases.size} 条测试依赖，解析大概是空的", testOnlyAliases.size >= 4)
+
+        val catalog = File(root, "gradle/libs.versions.toml").readText(Charsets.UTF_8)
+        val versionsBlock = catalog.substringBefore("[libraries]")
+        val versionByName = Regex("""^\s*([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"""", RegexOption.MULTILINE)
+            .findAll(versionsBlock)
+            .associate { it.groupValues[1] to it.groupValues[2] }
+        val librariesBlock = catalog.substringAfter("[libraries]").substringBefore("[plugins]")
+        val shippedVersions = LinkedHashSet<String>()
+        for (m in ENTRY.findAll(librariesBlock)) {
+            val alias = m.groupValues[1]
+            if (alias in testOnlyAliases) continue
+            val body = m.value
+            val literal = VERSION_LITERAL.find(body)?.groupValues?.get(1)
+            val ref = VERSION_REF.find(body)?.groupValues?.get(1)
+            val value = literal ?: (ref?.let { versionByName[it] })
+            if (!value.isNullOrEmpty()) shippedVersions += value
+        }
+        assertTrue("进包依赖里只收集到 ${shippedVersions.size} 个版本号，量具肯定不对", shippedVersions.size >= 10)
+
+        val text = noticesText
+        val missing = shippedVersions.filterNot { text.contains(it) }
+        assertTrue(
+            "这些版本没有写在第三方声明的表里：$missing。升依赖而不同步这张表，" +
+                "这份文件就从「事实清单」变成「上一次的事实清单」",
+            missing.isEmpty(),
+        )
+    }
+
     private fun findRepositoryRoot(): File {
         var cursor: File? = File("").absoluteFile
         while (cursor != null) {
@@ -162,6 +215,13 @@ class ThirdPartyNoticesCoverageTest {
         val ENTRY_START = Regex("""^\s*([A-Za-z0-9_.\-]+)\s*=\s*\{""")
 
         val GROUP = Regex("""group\s*=\s*"([^"]+)"""")
+
+        /** `[libraries]` 里的一条：组 1 是别名，整体值含 `group`/`name`/`version` 部分。 */
+        val ENTRY = Regex("""^\s*([A-Za-z0-9_.\-]+)\s*=\s*\{[^}]*\}""", RegexOption.MULTILINE)
+
+        /** 两种版本写法都要认：`version.ref = "cameraX"`（引用 `[versions]`）与 `version = "1.2.3"`。 */
+        val VERSION_REF = Regex("""version\.ref\s*=\s*"([^"]+)"""")
+        val VERSION_LITERAL = Regex("""(?<!\.)\bversion\s*=\s*"([^"]+)"""")
 
         /** `implementation(libs.androidx.core.ktx)` 里的那个访问器路径。 */
         val LIBS_ACCESSOR = Regex("""libs\.([A-Za-z0-9_.]+)\)""")
