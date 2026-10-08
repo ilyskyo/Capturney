@@ -143,6 +143,39 @@ release.keyPassword=...
 ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
 ```
 
+## 发布产物里到底声明了哪些权限
+
+源码 `AndroidManifest.xml` 只写 5 条，而**合并**之后的 release 包里有 8 条 + 1 条自定义权限。
+这多出来的一直没人记过，而它才是用户装机时看到的、也是商店审核看到的那一份。
+下面这份是 2026-10-09 用 `aapt2 dump xmltree --file AndroidManifest.xml app-release.apk`
+从**签名产物本身**读出来的，不是从源码推的：
+
+| 权限 | 来自 | 为什么留着 |
+|---|---|---|
+| `CAMERA` | 本仓库 | 取景。运行时申请，`required=false` 见上一节 |
+| `RECORD_AUDIO` | 本仓库 | 「录一段」。按下那一刻才申请（不在启动时要） |
+| `POST_NOTIFICATIONS` | 本仓库 | 每日到期提醒 |
+| `VIBRATE` | 本仓库 | 评级/归档/结算三处触觉 |
+| `INTERNET` | 本仓库 | 只服务「自带 key 的云端视觉」那一条可选路；默认引擎不出门 |
+| `WAKE_LOCK` | `androidx.work` | WorkManager 的排期本身要用它；去掉会让提醒在部分机器上漂 |
+| `RECEIVE_BOOT_COMPLETED` | `androidx.work` | 重启之后把排期捡回来 |
+| `ACCESS_NETWORK_STATE` | Play services / ML Kit | 联网前读一次连接状态 |
+| `…DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx.core` | Android 13+ 上 `registerReceiver` 要求的那条签名级权限，与本应用无关但必须随包 |
+
+**已经拿掉的一条**：`FOREGROUND_SERVICE`。它是 WorkManager 清单连带进来的，
+而本应用**没有任何 `<service>` 组件**、`DueReminderWorker` 是普通 `CoroutineWorker`、
+全仓库 `setForeground` / `ForegroundInfo` 出现 **0 次**——所以那条声明是可证明用不上的。
+它唯一的效果是让「本应用有前台服务」这句话出现在用户与审核面前，
+而 targetSdk 34 之后声明它还要配 `foregroundServiceType` 与用途说明：
+白拿的这条会直接换来发布期的一轮追问。写法是清单里的 `tools:node="remove"`。
+
+要重读这份集合（改依赖之后必须重读，因为它是合并结果而不是源码）：
+
+```bash
+"$SDK/build-tools/36.0.0/aapt2.exe" dump xmltree --file AndroidManifest.xml \
+  app/build/outputs/apk/release/app-release.apk | grep -A2 uses-permission
+```
+
 ## 发布前收口：R8、mapping.txt 与数据可发现性冒烟
 
 ### 为什么这件事需要一个脚本守着

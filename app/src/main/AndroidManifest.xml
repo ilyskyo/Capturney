@@ -1,5 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- WorkManager 的清单把 FOREGROUND_SERVICE 一起带了进来，而本应用**没有任何 service 组件**，
+         `DueReminderWorker` 是普通 CoroutineWorker 也从不调 `setForeground()`。
+         合并结果里那条权限因此是可证明用不上的：它唯一的效果是让一个「本应用有前台服务」的声明
+         出现在用户和商店面前。targetSdk 34 之后声明这条还要配 foregroundServiceType 与用途说明，
+         也就是说这条白拿的东西会直接换来发布期的一轮追问。 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
 
     <!-- Core feature. Not "required": the deck, review and lexicon browsing all still work on
          a camera-less tablet, so we would rather install than hard-fail. -->
