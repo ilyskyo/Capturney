@@ -260,6 +260,7 @@
     <string name="notice_audio_discarded">その音声は棄てました</string>
     <string name="notice_audio_superseded">別の記録で保存していなかった音声を棄てました</string>
     <string name="notice_mic_busy">通話か別のアプリがマイクを使っています。空いてからもう一度</string>
+    <string name="notice_no_microphone">この端末にはマイクがないので、音声メモは使えません</string>
     <string name="notice_audio_failed">録れなかったので、書きかけのファイルは消しました</string>
     <string name="notice_audio_take_pending">保存するか決まっていない音声があります。先に保存か棄てを選んでください</string>
     <string name="notice_audio_playback_failed">この音声は再生できません。ファイルが壊れているようです</string>

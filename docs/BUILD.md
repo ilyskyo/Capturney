@@ -308,10 +308,11 @@ CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前
     而不是每次都发一个系统不会再答的 request。永久拒绝的判别只能在用户答过之后做
     （第一次进这一页时 `shouldShowRequestPermissionRationale` 也是 false）。
     没有麦克风的机器（平板）要能装上、其余功能照常：`microphone` 声明的是 `required=false`。
-    **这一句现在只是「装得上」，不是「说得清」**：全仓库运行时只查了 `FEATURE_CAMERA_ANY`，
-    没查过麦克风在不在，所以无麦克风的设备按下「录一段」会拿到 `TakeNotice.FAILED` 那句通用失败，
-    而不是「这台设备没有麦克风」。要补的是 `core/voice/VoiceMemo.kt` 那一台状态机
-    （加一档要连着改迁移表与四语文案），`OptionalHardwareFeatureTest` 把这笔欠账钉在了名单里。
+    2026-10-09 起 `VoiceRecorder.start()` **第一件事**就是问 `FEATURE_MICROPHONE`，
+    缺它的设备当场拿到 `TakeNotice.NO_MIC`（四语各有一句），而不是那句「出问题了，再试一次」——
+    那一句在一台永远录不了的机器上是在劝人重试一件不会成的事。
+    **这一条也只能真机看**：要看按下「录一段」之后出现的是那句「这台设备没有麦克风」，
+    而不是权限对话框、也不是通用的录制失败。
     **同族的另一件硬件——无相机的设备**（2026-10-08 已接进代码，但没在真机上看过）：清单声明
     `camera.any required=false`，而取景页以前在绑定失败时只写一行 `Log.w`，留下一颗
     按下去什么都不会发生的快门。现在 `CaptureCamera` 先问 `hasSystemFeature`、绑定失败也上报，

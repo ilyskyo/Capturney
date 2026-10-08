@@ -670,7 +670,15 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             val outcome = withContext(Dispatchers.IO) { handle.start() }
             if (outcome != TakeStart.OK) {
                 releaseRecorder()
-                reportTake(if (outcome == TakeStart.IN_USE) TakeNotice.IN_USE else TakeNotice.FAILED)
+                reportTake(
+                    when (outcome) {
+                        TakeStart.IN_USE -> TakeNotice.IN_USE
+                        // 这台设备录不了，而再说一句「出问题了，再试一次」就是在让他重试一件
+                        // 永远不会成的事。这一档和占用、和真故障是三句不同的话。
+                        TakeStart.NO_MIC -> TakeNotice.NO_MIC
+                        else -> TakeNotice.FAILED
+                    },
+                )
                 return@launch
             }
             if (selectedEntryId.value != entryId) {
@@ -826,6 +834,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             TakeNotice.DISCARDED -> R.string.notice_audio_discarded
             TakeNotice.SUPERSEDED -> R.string.notice_audio_superseded
             TakeNotice.IN_USE -> R.string.notice_mic_busy
+            TakeNotice.NO_MIC -> R.string.notice_no_microphone
             TakeNotice.FAILED -> R.string.notice_audio_failed
         }
         showNotice(container.appContext.getString(resId))

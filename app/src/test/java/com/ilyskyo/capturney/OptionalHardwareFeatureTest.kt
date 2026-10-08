@@ -96,17 +96,13 @@ class OptionalHardwareFeatureTest {
         /**
          * 声明了可选、但**故意**不在运行时问的硬件，以及为什么不问。
          *
-         * `microphone` 这一条是欠账而不是结论：无麦克风的设备现在会拿到那句
-         * 「这台设备出了点问题」（`TakeNotice.FAILED`），它没说谎到「一定能再试成功」的程度，
-         * 但也没告诉用户这台机器根本录不了。要补的是 `TakeEvent`/`TakeNotice` 那一族
-         * （`core/voice/VoiceMemo.kt` 是一台状态机，加一档要连着改它的迁移表与四语文案），
-         * 而已写的真机核对项 16 现在明确要求把这一句在真机上确认一遍。
+         * `microphone` 不在这里了：2026-10-09 起 `VoiceRecorder.start()` 先问 `FEATURE_MICROPHONE`，
+         * 缺它的设备拿到 `TakeNotice.NO_MIC` 那一句实话，而不是「出问题了，再试一次」。
+         * 所以留在这份名单里的那一条是**结论**，不是欠账。
          */
         val DECLARED_UNCHECKED = mapOf(
             "android.hardware.camera.autofocus" to
                 "定焦镜头由 CameraX 自己降级，没有需要单独告诉用户的那一种失败",
-            "android.hardware.microphone" to
-                "欠账：无麦克风设备现在会收到通用的录制失败句，见 docs/BUILD.md 真机核对项 16",
         )
     }
 }

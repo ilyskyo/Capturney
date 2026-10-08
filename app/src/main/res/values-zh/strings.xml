@@ -282,6 +282,7 @@
     <string name="notice_audio_discarded">那段声音已经丢掉</string>
     <string name="notice_audio_superseded">另一条上还没收下的那段已经丢掉</string>
     <string name="notice_mic_busy">麦克风正被通话或别的应用占着，等它空下来再录</string>
+    <string name="notice_no_microphone">这台设备没有麦克风，所以这里录不了那一句声音</string>
     <string name="notice_audio_failed">这次没录上，写了一半的文件已经清掉</string>
     <string name="notice_audio_take_pending">还有一段没处理完的声音，先收下或丢弃它</string>
     <string name="notice_audio_playback_failed">这段声音放不出来，可能是文件坏了</string>

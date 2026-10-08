@@ -285,6 +285,9 @@ enum class TakeNotice {
     SUPERSEDED,
     IN_USE,
 
+    /** 这台设备没有麦克风——不是「再试一次」那一种失败，见 [TakeStart.NO_MIC]。 */
+    NO_MIC,
+
     /** 录音失败了，而原因不在用户身上。 */
     FAILED,
 }

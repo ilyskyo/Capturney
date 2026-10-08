@@ -280,6 +280,8 @@
     <string name="notice_audio_discarded">That clip was discarded</string>
     <string name="notice_audio_superseded">The clip you had not kept on another entry was discarded</string>
     <string name="notice_mic_busy">A call or another app holds the microphone. Try again once it is free.</string>
+    <!-- 不是「再试一次」那一种失败：这台设备的清单里麦克风是可选硬件，缺它就是缺了。 -->
+    <string name="notice_no_microphone">This device has no microphone, so a voice note isn\'t available here</string>
     <string name="notice_audio_failed">Nothing was recorded this time; the half-written file was removed</string>
     <string name="notice_audio_take_pending">One clip is still undecided — keep it or discard it first</string>
     <string name="notice_audio_playback_failed">This recording cannot be played; the file may be damaged</string>

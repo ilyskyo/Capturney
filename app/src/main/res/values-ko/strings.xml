@@ -260,6 +260,7 @@
     <string name="notice_audio_discarded">그 소리를 버렸어요</string>
     <string name="notice_audio_superseded">다른 기록에서 저장하지 않았던 소리를 버렸어요</string>
     <string name="notice_mic_busy">통화나 다른 앱이 마이크를 쓰고 있어요. 끝나고 다시 시도해 주세요</string>
+    <string name="notice_no_microphone">이 기기에는 마이크가 없어서 음성 메모는 쓸 수 없어요</string>
     <string name="notice_audio_failed">녹음되지 않았어요. 중간에 멈춘 파일은 지웠습니다</string>
     <string name="notice_audio_take_pending">아직 정하지 않은 소리가 있어요. 먼저 저장하거나 버려 주세요</string>
     <string name="notice_audio_playback_failed">이 소리는 재생할 수 없어요. 파일이 상한 것 같아요</string>

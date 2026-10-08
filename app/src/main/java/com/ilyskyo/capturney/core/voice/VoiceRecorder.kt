@@ -4,6 +4,7 @@
 package com.ilyskyo.capturney.core.voice
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.media.MediaMetadataRetriever
 import android.media.MediaRecorder
@@ -54,10 +55,17 @@ class VoiceRecorder(
     /**
      * 开录。
      *
-     * 返回的是原因而不是一句文案：调用方拿 [TakeStart] 去选「麦克风被占着」还是「机器出了事」
-     * 那两句话——用户可以自己做点什么的失败，和只能重来的失败，不该共用一句道歉。
+     * 返回的是原因而不是一句文案：调用方拿 [TakeStart] 去选「被通话占着」「这台设备没有麦克风」
+     * 和「机器出了事」那三句话——用户可以自己做点什么的失败、做什么都不行的失败，
+     * 和只能重来的失败，不该共用一句道歉。
      */
     fun start(): TakeStart {
+        // 先问硬件，再谈占用。缺麦克风的那一种失败不是「等一下再来」，
+        // 而下面两条路（`micTakenByCall` 与 start 抛出的那一种）在缺硬件的机器上给出的都是
+        // 「机器出了事」——于是用户会一直重试一台永远录不了的机器。
+        if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)) {
+            return TakeStart.NO_MIC
+        }
         // 通话（含拨号中、VoIP）里麦克风不归我们。这里先问一句而不是等它抛：抢来的那一段
         // 只有对方听得见，或者干脆是一段静音，两种都该在动手之前就挡下来。
         if (micTakenByCall()) return TakeStart.IN_USE
@@ -234,13 +242,22 @@ private fun MediaRecorder.setOutputFilePath(file: File) {
     setOutputFile(file.absolutePath)
 }
 
-/** [VoiceRecorder.start] 的结果。三种都要说话，但说的是三句不同的话。 */
+/** [VoiceRecorder.start] 的结果。每一种都要说话，而说的是四句不同的话。 */
 enum class TakeStart {
     /** 麦克风到手，文件开始写。 */
     OK,
 
     /** 通话里，或别的 App 正占着。用户挂断之后可以马上再试一次。 */
     IN_USE,
+
+    /**
+     * 这台设备没有麦克风。
+     *
+     * 必须和 [FAILED] 分开：`FAILED` 说的是「再试一次也许就好了」，而这一种再试一万次也一样。
+     * 清单里 `android.hardware.microphone` 是 `required="false"`——也就是**主动决定过**
+     * 让没麦克风的设备装得上。那种机器按下这一颗键时该听到一句实话，不是一句通用道歉。
+     */
+    NO_MIC,
 
     /** 机器出了事：权限被撤回、目录写不进、编码器起不来。 */
     FAILED,
