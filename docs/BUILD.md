@@ -248,10 +248,19 @@ python3 tools/release_smoke.py
 | 1 | 有名字被改名或裁掉——修 `app/proguard-rules.pro`，**不要修断言** |
 | 2 | 没有 mapping.txt（或解析结果为空）。**不会静默放行**：这一步没跑就等于没验 |
 
-脚本核对的是四件事：七个落盘枚举的**每一个常量名** + `values()`/`valueOf()`、清单里 15 个
-`$$serializer` 类（产物里实测 16 个，多出来的那个是 `srs.Fsrs$State`）、`Companion` 字段、
-以及 APK 里 `classes.dex` 中的 JSON 元素名与长枚举名。
-最后那一项是佐证：短名字（`log`、`mood`、`AI` 这类）在 dex 字符串池里可能偶然命中，
+脚本核对的是四件事：七个落盘枚举的**每一个常量名** + `values()`/`valueOf()`、清单里 17 个
+`$$serializer` 类、`Companion` 字段、以及 APK 里 `classes.dex` 中的 JSON 元素名与长枚举名。
+产物 `mapping.txt` 里实测有 **19** 个 `$$serializer` 类，比清单多两个，两个都有交代：
+`srs.Fsrs$State$$serializer`（`Fsrs.State` 是枚举，枚举不生成 serializer，但 kotlinx 会给它造一个，
+所以它必须在产物里而在清单外，脚本改按 `Companion` 那一族核它）、
+以及 `androidx.savedstate.serialization…SparseArraySerializer$SparseArraySurrogate$$serializer`
+——**第三方自己的类**，和本应用的 JSON 无关，不必加进清单。
+数一下这两个数（`grep -cE '\$\$serializer ->' app/build/outputs/mapping/release/mapping.txt`）
+是必要的，不是洁癖：**这张清单漏过第四个资产文件根**——注音层的 `GlossOverlayFile` /
+`GlossOverlayEntry`（`gloss-ja.json` / `gloss-ko.json`）后来才加，而它们不在核对之列，
+漏掉的后果不是崩溃而是**日语韩语背面静默变空**，也就是 `en.toothpaste` 真发生过的那一种。
+以后每加一个会被 `*.serializer()` 读写的类，这张清单要跟着加一行。
+最后那一项（dex 里的元素名）是佐证：短名字（`log`、`mood`、`AI` 这类）在 dex 字符串池里可能偶然命中，
 脚本只把它标成「弱证据」，不作为通过的依据；反过来**缺失一定是真缺失**。
 
 CI 里挂在 `assembleRelease` 之后、体积报告与 `upload-artifact` 之前——格式不稳定时不该把包传上去。

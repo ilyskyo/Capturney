@@ -73,9 +73,14 @@ PERSISTED_ENUMS: dict[str, list[str]] = {
     f"{MODEL}.StudyDirection": ["RECOGNIZE", "RECALL"],  # 既是 map key 也是 DataStore 的值
 }
 
-#: 有 kotlinx.serialization 生成的 `$$serializer` 的类型：两个用户文档根 + 三个资产文件根
+#: 有 kotlinx.serialization 生成的 `$$serializer` 的类型：两个用户文档根 + **四个**资产文件根
 #: 及其全部嵌套类型。序列化器被裁掉或改名时，`DeckDocument.serializer()` 就找不到描述符，
 #: 而 `ignoreUnknownKeys + coerceInputValues` 把失败摊平成「空文档」。
+#:
+#: 第四个根是后加的注音层（`gloss-ja.json` / `gloss-ko.json`），一开始漏在这里——
+#: 漏掉的后果不是崩溃而是**日语韩语背面静默变空**，也就是 `en.toothpaste` 真发生过的那一种事故
+#: （见 docs/BUILD.md 的 GlossOverlayCoverageTest 一节）。资产文件根加一个，这张清单必须跟着加，
+#: 所以「四个」写在这里而不是写成「三个」等人来发现。
 SERIALIZER_CLASSES: list[str] = [
     f"{REPO}.DeckDocument",   # filesDir/deck.json 的根
     f"{REPO}.DiaryDocument",  # filesDir/diary.json 的根
@@ -85,8 +90,10 @@ SERIALIZER_CLASSES: list[str] = [
     f"{MODEL}.Entry",
     f"{MODEL}.EntryObject",
     f"{MODEL}.EventCard",
-    f"{MODEL}.LexiconFile",   # assets/lexicon/*.json
+    f"{MODEL}.LexiconFile",   # assets/lexicon/en.json 与 concepts.json
     f"{MODEL}.LexiconEntry",
+    f"{MODEL}.GlossOverlayFile",    # assets/lexicon/gloss-ja.json / gloss-ko.json 的根
+    f"{MODEL}.GlossOverlayEntry",   # 它们每一项：{id, word}
     f"{MODEL}.SceneTaxonomy",  # assets/scenes/scenes.json
     f"{MODEL}.SceneKind",
     f"{MODEL}.AmbienceFile",  # assets/scenes/ambience.json
