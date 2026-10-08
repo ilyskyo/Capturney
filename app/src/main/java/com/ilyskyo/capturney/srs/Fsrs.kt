@@ -107,6 +107,14 @@ object Fsrs {
     private const val MS_PER_DAY = 24L * 60 * 60 * 1000
     private const val MAX_INTERVAL_DAYS = 36500
 
+    /** 见 [relearnDelayMs]：按「忘了」之后在同一轮里回来的那一步。 */
+    private const val RELEARN_MS = 60_000L
+
+    /**
+     * 兜底的抖动来源，只在**不按天承诺**的读数上用得到（[minimumIntervalDays] / [maximumIntervalDays]
+     * 走的是 `fuzz = false`，实际上一次都没抽过）。真正会落盘、会被印在按钮上的那条路取自
+     * [fuzzSeed]——用这里的话，标签与 `due` 就会各抽一个数。
+     */
     private val rng = Random(System.nanoTime())
 
     @Volatile
@@ -168,16 +176,23 @@ object Fsrs {
      * The review screen renders these directly on the four buttons ("2d", "6d", "3w"), which
      * is the single most useful thing a scheduler can tell a learner before they commit.
      */
+    /**
+     * The interval each grade **will** schedule — the same number the four buttons print.
+     *
+     * 这里必须走与 [review] 完全相同的一条路（含抖动与单调钳制），否则按钮说的是另一件事。
+     * 分头写过一次：`previewIntervals` 当时绕过了 `hard <= good < easy` 那三步钳制，于是一张
+     * S=1、R=1 的卡上按钮写着「1 天」，而真正落盘的 due 是 2 天后。抖动也曾经各抽一次：
+     * 标签 12 天、存进去 11 天，同一张卡换一次界面还会自己跳。种子取自状态本身，
+     * 见 [fuzzSeed]。
+     */
     fun previewIntervals(
         state: State,
         now: Long = System.currentTimeMillis(),
-    ): Map<Rating, Int> = Rating.entries.associateWith { rating ->
-        intervalForStability(evolve(state, rating, now).second, fuzz = false)
-    }
+    ): Map<Rating, Int> = intervals(state, now, fuzz = true, random = Random(fuzzSeed(state, now)))
 
     /** Apply a review and return the next state. The caller persists it. */
     fun review(state: State, rating: Rating, now: Long = System.currentTimeMillis()): State =
-        review(state, rating, now, rng)
+        review(state, rating, now, Random(fuzzSeed(state, now)))
 
     /**
      * [review] with the jitter source injected. Not a test-only convenience: without a seam here,
@@ -185,13 +200,14 @@ object Fsrs {
      * failing one differ only by which random fuzz offsets came up.
      */
     internal fun review(state: State, rating: Rating, now: Long, random: Random): State {
-        val next = scheduledIntervals(state, now, random)
-        val days = next.getValue(rating)
+        val days = scheduledIntervals(state, now, random).getValue(rating)
         val (d, s) = evolve(state, rating, now)
         return State(
             difficulty = d,
             stability = s,
-            due = now + days * MS_PER_DAY,
+            // 「忘了」不按天排。0 天在这里读作「[RELEARN_MS] 之后在同一轮里回来」，
+            // 和按钮上那句「现在」取自同一处——分头写迟早会有一边先改，界面就开始撒谎。
+            due = now + if (rating == Rating.AGAIN) RELEARN_MS else days * MS_PER_DAY,
             lastReview = now,
             reviewCount = state.reviewCount + 1,
             lapses = state.lapses + if (rating == Rating.AGAIN) 1 else 0,
@@ -207,18 +223,53 @@ object Fsrs {
      * 那正是这个界面唯一的承诺——四个按钮从左到右越来越长。缺了它，用户点最右边那颗
      * 却拿到比中间那颗更近的到期日，而这既不会崩也不会进日志。
      */
-    internal fun scheduledIntervals(state: State, now: Long, random: Random): Map<Rating, Int> {
-        val raw = Rating.entries.associateWith { rating ->
-            intervalForStability(evolve(state, rating, now).second, fuzz = true, random = random)
-        }
-        val again = raw.getValue(Rating.AGAIN)
+    internal fun scheduledIntervals(state: State, now: Long, random: Random): Map<Rating, Int> =
+        intervals(state, now, fuzz = true, random = random)
+
+    /**
+     * 「忘了」的重学步长。
+     *
+     * FSRS 只管长期调度；参考实现在这里写得很明白（fsrs4anki_scheduler.js:17）：
+     * "(re)learning steps in deck options work as usual. I recommend setting steps shorter than 1 day."
+     * 我们没有 deck options 这一层，而 `intervalForStability` 的下限是 1 天，于是「忘了」这张卡在
+     * 原版里会少掉它最要紧的一半行为：**这一轮**再答一次。界面那头其实早就按这件事设计好了——
+     * `IntervalFormat` 有 `days <= 0 -> Now` 一档、四语都备了文案、`IntervalFormatTest` 也断言过，
+     * 只是调度器永远发不出那个 0，所以那条分支一直走不到。
+     */
+    fun relearnDelayMs(): Long = RELEARN_MS
+
+    internal fun intervals(state: State, now: Long, fuzz: Boolean, random: Random): Map<Rating, Int> {
+        val raw = Rating.entries
+            .filter { it != Rating.AGAIN }
+            .associateWith { rating ->
+                intervalForStability(evolve(state, rating, now).second, fuzz = fuzz, random = random)
+            }
         var hard = raw.getValue(Rating.HARD)
         var good = raw.getValue(Rating.GOOD)
         var easy = raw.getValue(Rating.EASY)
         hard = min(hard, good)
         good = max(good, hard + 1)
         easy = max(easy, good + 1)
-        return mapOf(Rating.AGAIN to again, Rating.HARD to hard, Rating.GOOD to good, Rating.EASY to easy)
+        // AGAIN 恒为 0：它走重学步长而不是长期间隔，所以既不参与抖动，也不参与单调钳制
+        // （`intervalForStability` 的下限是 1 天，钳出来的最小值总归大于 0）。
+        return mapOf(Rating.AGAIN to 0, Rating.HARD to hard, Rating.GOOD to good, Rating.EASY to easy)
+    }
+
+    /**
+     * 同一张卡在同一个自然日里的抖动种子。
+     *
+     * 按钮上的间隔与真正写进 `due` 的间隔是**两次**调用（渲染时一次、评级时一次），所以抖动
+     * 不能取自一个共享的 `Random(System.nanoTime())`：那样两次各抽一个数，标签说 12 天而存进去
+     * 是 11 天，而且同一张卡换一次界面读数还会自己跳。Anki 的 Rust 实现按 (card id, 复习次数)
+     * 定种子；`Fsrs` 是纯函数层、拿不到 id，所以用状态本身加当天序号——同一张卡在同一个自然日里
+     * 抽到的永远是同一个抖动值，标签因此就是承诺。
+     */
+    private fun fuzzSeed(state: State, now: Long): Long {
+        var seed = state.stability.toRawBits()
+        seed = seed * 31 + state.difficulty.toRawBits()
+        seed = seed * 31 + state.reviewCount
+        seed = seed * 31 + state.lapses
+        return seed * 31 + now / MS_PER_DAY
     }
 
     /** Shortest interval this configuration would ever schedule, used to warn about absurd retention settings. */

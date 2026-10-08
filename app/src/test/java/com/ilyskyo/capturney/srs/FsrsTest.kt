@@ -70,9 +70,43 @@ class FsrsTest {
     fun `interval at ninety percent retention equals stability`() {
         for (s in listOf(1.0, 2.5, 8.0, 45.0, 300.0)) {
             val state = Fsrs.State(stability = s, due = t0, lastReview = t0, reviewCount = 1)
-            val good = Fsrs.previewIntervals(state, now = t0)[Fsrs.Rating.GOOD]!!
-            assertEquals("S=$s", Math.round(s).toInt(), good)
+            // 读的是不抖动的那一路：这个恒等式说的是 FACTOR 与 DECAY 的符号，抖动是 ±5%，
+            // 混进来就量不准了。取 HARD 而不是 GOOD——三档在 R=1 时算出的稳定性相同，
+            // 单调钳制会把 GOOD/EASY 抬到 hard+1、good+1（Anki 在这种情况下也印 1d/2d/3d）。
+            val hard = Fsrs.intervals(state, t0, fuzz = false, random = kotlin.random.Random(0))
+                .getValue(Fsrs.Rating.HARD)
+            assertEquals("S=$s", Math.round(s).toInt(), hard)
         }
+    }
+
+    /**
+     * 按钮上那个数**就是**会被存进 `due` 的那个数。
+     *
+     * 这条在两次分头实现里都坏过：一次是 `previewIntervals` 绕过了单调钳制（标签 1 天、
+     * 落盘 2 天），一次是抖动取自一个共享的随机源（渲染抽一个、评级抽另一个，标签与 due
+     * 差 5%，而同一张卡换一次界面读数还会跳）。用 S=45 这种一定会抖的间隔来问最灵。
+     */
+    @Test
+    fun `what the buttons show is what gets stored`() {
+        val state = Fsrs.State(
+            stability = 45.0,
+            difficulty = 6.0,
+            due = t0,
+            lastReview = t0 - 45 * day,
+            reviewCount = 7,
+            lapses = 2,
+        )
+        val shown = Fsrs.previewIntervals(state, t0)
+        for (rating in listOf(Fsrs.Rating.HARD, Fsrs.Rating.GOOD, Fsrs.Rating.EASY)) {
+            val stored = Fsrs.review(state, rating, t0)
+            assertEquals(
+                "$rating 按钮写着 ${shown[rating]} 天，实际排到 ${(stored.due - t0) / day} 天",
+                shown.getValue(rating) * day,
+                stored.due - t0,
+            )
+        }
+        // 同一个状态再问一次必须给同一个答案，否则「标签即承诺」只在那一次渲染成立。
+        assertEquals(shown, Fsrs.previewIntervals(state, t0 + 3_000L))
     }
 
     /** Raising the target retention must never lengthen the interval. */
@@ -161,6 +195,48 @@ class FsrsTest {
         val good = p[Fsrs.Rating.GOOD]!!
         val easy = p[Fsrs.Rating.EASY]!!
         assertTrue("$again < $hard < $good < $easy", again < hard && hard < good && good < easy)
+    }
+
+    /**
+     * 按「忘了」必须留在**这一轮**里。
+     *
+     * 参考实现把这件事说得很清楚：FSRS 只管长期调度，(re)learning steps 由牌组选项负责
+     * （fsrs4anki_scheduler.js:17-18，并建议步长短于一天）。我们没有 deck options 那一层，
+     * 而 `intervalForStability` 的下限是 1 天，于是这一半行为是**整块缺掉的**：
+     * 用户说「没想起来」，得到的却是「明天再来」，一次当场重答的机会都没有。
+     *
+     * 界面那头其实早就备好了：`IntervalFormat` 有 `days <= 0 -> Now` 一档、四语都有文案、
+     * `IntervalFormatTest` 也断言过——只是调度器永远发不出那个 0，所以那条分支一直是死代码。
+     * 这里把两头一起钉住：预览给 0（按钮因此写「现在」），落盘的到期日是重学步长。
+     */
+    @Test
+    fun `again keeps the card in this round and previews as now`() {
+        val state = Fsrs.State(
+            stability = 25.0,
+            difficulty = 5.0,
+            due = t0,
+            lastReview = t0 - 25 * day,
+            reviewCount = 5,
+        )
+        val again = Fsrs.previewIntervals(state, t0).getValue(Fsrs.Rating.AGAIN)
+        val out = Fsrs.review(state, Fsrs.Rating.AGAIN, t0)
+        assertEquals("按钮上那句「现在」要求预览发 0 天", 0, again)
+        assertEquals("到期日必须与预览同源，否则界面和调度会分头改", t0 + Fsrs.relearnDelayMs(), out.due)
+        assertTrue("重学步长必须短于一整天，否则它不叫「留在这一轮」", Fsrs.relearnDelayMs() < day)
+        // 缺掉的只是「什么时候再来一次」，不是「这次算忘了」：FSRS 的遗忘更新照常发生。
+        assertTrue("S=${out.stability}", out.stability < state.stability)
+        assertEquals(1, out.lapses)
+        // 其余三档仍按天排，且都排在重学步长之后。
+        val others = Fsrs.previewIntervals(state, t0).filterKeys { it != Fsrs.Rating.AGAIN }
+        others.forEach { (rating, days) -> assertTrue("$rating=$days", days >= 1) }
+    }
+
+    /** 新卡按「忘了」同样要当场回来：介绍阶段第二次暴露比一天之后有用得多。 */
+    @Test
+    fun `a new card graded again also comes back within the round`() {
+        val out = Fsrs.review(Fsrs.State(), Fsrs.Rating.AGAIN, t0)
+        assertEquals(t0 + Fsrs.relearnDelayMs(), out.due)
+        assertEquals(1, out.reviewCount)
     }
 
     /** A lapse must not leave the card more stable than it was. */

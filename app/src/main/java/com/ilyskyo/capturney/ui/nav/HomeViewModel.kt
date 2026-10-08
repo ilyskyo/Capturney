@@ -103,17 +103,17 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
          * 本轮**答过的张**（按卡 id 去重）。
          *
          * 用集合而不是计数器，是因为队列不是一次性快照：`buildRemember` 每次输入变化都按
-         * `now >= due` 重算，而评为「忘了」的卡下一次到期是一分钟后——只要用户还在这一轮里，
-         * 它就会**重新排进来**。按次数计会得到两个错的读数：「已完成 6」把同一张卡数了两次，
+         * 「到期（含一分钟内的重学步长）」重算，而评为「忘了」的卡**仍算在这一轮里**，于是它会
+         * **重新排进来**。按次数计会得到两个错的读数：「已完成 6」把同一张卡数了两次，
          * 而 `total = done + queue.size` 里它又在队列中出现一次，于是进度条会在答完一张之后
-         * 往回退一格。
+         * 往回退一格。[sessionCounts] 就是把这一格扣掉的那一步。
          */
         val attempted: Set<String> = emptySet(),
         /**
          * 本轮里**第一次**就评了「忘了」的张数。
          *
          * 完成页那个读数说的是「第一次就答对」的比例，所以分子分母都必须是张而不是次数：
-         * 一张卡先「忘了」再在同一个一分钟后答对，它对「一次答对率」的贡献是 0/1，
+         * 一张卡先「忘了」、在同一轮里再来一次然后答对，它对「一次答对率」的贡献是 0/1，
          * 而不是 1/2。按次数算的话这个数字会一路逼近 100% 而毫无意义——
          * 重复答错的那几张恰恰是最该被看到的。FSRS 四档里只有 AGAIN 表示「没想起来」。
          */
@@ -380,10 +380,7 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
 
     fun onGrade(rating: Fsrs.Rating) {
         val item = remember.value.current?.item ?: return
-        val key = when (item) {
-            is ReviewItem.Word -> "w:" + item.card.id
-            is ReviewItem.Event -> "e:" + item.card.id
-        }
+        val key = reviewKey(item)
         if (key == gradedKey) return
         gradedKey = key
         val now = System.currentTimeMillis()
@@ -861,12 +858,19 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
         // 曾被选成同一门，那时铸下的卡词头写的就是母语，所以修好方向也修不回卡上的字。
         // 只能在这里挡住；但必须把数量说出来，不能让用户以为队列空了。
         var skippedSameFace = 0
+        // 到期判定放宽一个重学步长。理由不是「想早点看到它」，而是这条链上**没有钟**：
+        // buildRemember 只在牌组/日记/设置/会话/TTS 变化时重算，一分钟自己过去不会推动它。
+        // 照 `now >= due` 写的话，按了「忘了」的那张卡要等用户做点别的（切页签、退出去再进来）
+        // 才会重新出现，而在那之前界面先给你看一屏「本轮完成」——一个会在几十秒后被推翻的结论。
+        // 把「即将到期」的收进来并按到期时间排到队尾，同一件事就不必养一个后台 ticker：
+        // 它此刻仍算在这一轮里，只是排在别的卡后面，正好像原版的重学队列。
+        val horizon = now + Fsrs.relearnDelayMs()
         val queue = buildList {
             if (current.material != StudyMaterial.EVENTS) {
                 val due = deck.cards.filter { card ->
                     // 已掌握的卡彻底不出现在队列里——它靠手动归档，不靠 EASY 的长间隔。
                     val state = card.state(direction)
-                    !card.mastered && (state == null || now >= state.due)
+                    !card.mastered && (state == null || state.due <= horizon)
                 }
                 val native = settings.nativeLanguage
                 val (reviewable, collapsed) = due.partition {
@@ -879,11 +883,11 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 diary.events
                     .filter { event ->
                         val state = event.state()
-                        !event.mastered && (state == null || now >= state.due)
+                        !event.mastered && (state == null || state.due <= horizon)
                     }
                     .forEach { add(ReviewItem.Event(it)) }
             }
-        }
+        }.sortedBy { it.dueKey(direction) }
 
         val head = queue.firstOrNull()
         // 已归档的排在队列之后：它们不再被调度，但必须能被翻出来取消，否则这个动作就是单行道。
@@ -895,10 +899,11 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
                 diary.events.filter { it.mastered }.forEach { add(ReviewItem.Event(it)) }
             }
         }
+        val (done, total) = sessionCounts(current.attempted, queue.map { reviewKey(it) })
         return RememberUiState(
             material = current.material,
-            done = current.attempted.size,
-            total = current.attempted.size + queue.size,
+            done = done,
+            total = total,
             current = head?.let { cardFor(it, settings) },
             revealed = current.revealed,
             showingAnswer = current.showingAnswer,
@@ -1141,6 +1146,43 @@ class HomeViewModel(private val container: AppContainer) : ViewModel() {
             initializer { HomeViewModel(container) }
         }
     }
+}
+
+/**
+ * 一张卡在「本轮」里的身份。
+ *
+ * 词卡与事件卡的 id 各自生成、格式上撞不了，前缀仍然要给这件事上保险：
+ * [onGrade] 记进去的键与 [buildRemember] 数出来的键**必须出自同一个函数**。分头写过一次，
+ * 症状是「忘了」的那张回来时被当成另一张没答过的——done 多算一张，而进度条往后跳一格。
+ */
+internal fun reviewKey(item: ReviewItem): String = when (item) {
+    is ReviewItem.Word -> "w:" + item.card.id
+    is ReviewItem.Event -> "e:" + item.card.id
+}
+
+/**
+ * 这一张什么时候回来，队列就按它排序。
+ *
+ * 新卡没有状态，取 0 排最前：先介绍新词，再复习旧的，和 `dueCards(includeNew = true)`
+ * 把新卡算作「现在就到期」是同一个意思。真正的用途只有一个——按了「忘了」的那张
+ * 到期时间在一分钟之后，于是它自动落到队尾，用户先把后面的卡过完再回来见它。
+ */
+internal fun ReviewItem.dueKey(direction: StudyDirection): Long = when (this) {
+    is ReviewItem.Word -> card.state(direction)?.due ?: 0L
+    is ReviewItem.Event -> card.state()?.due ?: 0L
+}
+
+/**
+ * 本轮那两个读数：已答过的张数，与这一轮总共几张。
+ *
+ * 分母不能写成 `done + queue.size`：一张「忘了」的卡同时在两处出现——它答过了（所以进
+ * `attempted`），它还在这一轮里（所以进队列）。直接相加就等于把这一张数两次，进度条会
+ * 在答完一张之后变大，读起来像「还有更多」而不是「少了一张」。重学步长之前这条路走不到，
+ * 因为按「忘了」的卡到期日在一分钟之后、根本不会被算进队列；现在它会，所以这一步必须做。
+ */
+internal fun sessionCounts(attempted: Set<String>, queueKeys: List<String>): Pair<Int, Int> {
+    val pending = queueKeys.count { it !in attempted }
+    return attempted.size to attempted.size + pending
 }
 
 private fun FsrsState.toScheduler(): Fsrs.State = Fsrs.State(
